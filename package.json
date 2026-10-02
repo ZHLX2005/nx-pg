@@ -1,6 +1,6 @@
 {
   "name": "nx-pg",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "本机工具：CLI 与 Web 面板同源",
   "type": "module",
   "bin": {
@@ -34,7 +34,11 @@
   "packageManager": "pnpm@10.33.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/On-DevPlan/nx-pg.git"
+    "url": "git+https://github.com/ZHLX2005/nx-pg.git"
+  },
+  "homepage": "https://github.com/ZHLX2005/nx-pg#readme",
+  "bugs": {
+    "url": "https://github.com/ZHLX2005/nx-pg/issues"
   },
   "license": "MIT",
   "dependencies": {
