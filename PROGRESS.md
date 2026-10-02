@@ -335,4 +335,45 @@ selftest 之前在 mouseup 后查——所以总 false。**修复**：在 mouseu
 4. 整理 settings 面板迁移的 i18n 兜底（目前显示 key 字符串 → 后续按需补）
 5. 检查 README 是否更新、CHANGELOG 是否写
 
+## 轮 9 完成记录 — UI i18n 中文化（最高 ROI 改动）
+
+### 修复内容
+
+`src/web/frontend/app/src/react-i18next-stub.ts`：
+
+之前 stub 的 `t(key)` 直接返回 key 字符串，导致 UI 所有 t() 调用显示原始 key（如 `file.title`、`checkoutLeftMouseToSelectAndMove.title`）。改造方案：
+
+- 委托给真 i18next 实例（main.tsx 已加载 zh_CN/en 资源）
+- 真包找不到时调用 `lookupAllNamespaces` 全量扫所有 namespace，nx-pg 默认 zh_CN → zh_TW → en 兜底
+- 支持 `t(key, "中文默认")` 字符串第二参（项目里常见约定）和 `t(key, { ns, defaultValue })` 标准 i18next 选项
+- 砍掉 useSyncExternalStore（与 react-i18next 内部实现时机在 React 19 + esbuild 下冲突，触发 "Je is not a function" 白屏）
+
+### 验证结果（headless 实测）
+
+主菜单栏从英文 key 变为中文：
+
+| 之前 | 之后 |
+|---|---|
+| `file` | `文件` |
+| `view` | `视野` |
+| `actions` | `操作` |
+| `settings` | `设置` |
+| `ai` | `AI` |
+| `window` | `视图` |
+| `extensions` | `扩展` |
+| `about` | `关于` |
+
+DropWindowCover 提示文本（之前就是中文）、Command Palette 占位符、底部工具栏 tooltip 全部走 zh_CN 链路。
+
+### 已知 UX 冲突（写入 pending.md）
+
+- Settings.language schema 仍支持 5 种语言，但 stub 实际上只显示中文 — core 不动
+- lookupAllNamespaces 跨 ns 兜底隐藏了原 namespace 不匹配的 bug — 选 "用户看到对" 而非 "语义对齐"
+
+### 测试状态
+
+- pnpm run test 全绿（lint + build + smoke + unit）
+- 修改文件 1 个（react-i18next-stub.ts）+ pending.md + PROGRESS.md
+- bundle 大小变化：+0KB（zh_CN 资源本来就被 import，无新依赖）
+
 
