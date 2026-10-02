@@ -64,7 +64,7 @@ test('路径越界被拒', async () => {
   const { default: project } = await import('../../src/modules/project/index.js');
   const find = (id) => project.actions.find((a) => a.id === id);
   await assert.rejects(
-    () => find('project.fs.read').run({ path: '..\\..\\etc\\passwd' }, { transport: 'http' }),
+    () => find('project.fs.read').run({ path: '../../../etc/passwd' }, { transport: 'http' }),
     /路径越界/,
   );
   delete process.env.NX_PG_WORKSPACE;
