@@ -431,3 +431,45 @@ canvas 存活 —— 轮 4 的乒乓死循环确认不再发生。
 - 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
 - 改动文件：App.tsx（+30）、sub/SettingsWindow.tsx（+14/-6）
 - 2 条 UX 语义差写入 pending.md（主题列表只覆盖明暗两档 / 记忆上次配色需手动挑过）
+
+## 轮 12 完成记录 — 修图片粘贴（Agent.md 明列需求）✅ 浏览器实测贴出真图
+
+浏览器里 Ctrl+V 贴图此前**完全不通**，且不止一处断链，共修 4 层：
+
+1. **`imageNodeFactory.ts` 是「只 new 不入台」的占位实现**（最致命）
+   节点建出来后**从没 `stageManager.add`**，渲染器遍历不到 → 画布上什么都不会出现；
+   且尺寸恒为 `100×100`（没量图片本身），url 用 `blob:` 而非 attachmentId。
+   已按原版语义重建：`createImageBitmap` 量真实尺寸 → `project.addAttachment(blob)`
+   → `stageManager.add(imageNode)`。
+   **必须走 addAttachment**：ImageNode 构造时按 attachmentId 去 `project.attachments` 取 blob
+   （ImageNode.tsx:96），取不到直接把 state 置 `notFound` 渲染破图；
+   附带好处是图片进 attachments，存 .prg 时会被一起打包（Project.tsx:392）。
+
+2. **AUTO 模式在浏览器必失败**：`readSystemClipboardAndPaste` 按 `isMac`/`isWindows`/`isLinux`
+   选路线，但 `utils/platform.tsx` 里这三个常量全带 `!isWeb &&` 前缀 —— 浏览器下**恒为 false**，
+   一路掉进最后的「未知系统」兜底走 tauri 分支，而 tauri 分支调的 `readImage()` 在 shim 里
+   **无条件 throw**。已加 `isWeb` 分支直接走 webview（桌面端逻辑原样保留）。
+   顺带修掉误导性报错：Web 版弹「Tauri模式粘贴图片失败」本身就是错的。
+
+3. **`pasteImageFromWebClipboard` 会把整个 paste 打成 unhandled rejection**：
+   `navigator.clipboard.read()` 需要权限+用户手势+安全上下文，无条件 await 必抛。
+   已包 try/catch 并给中文提示（权限被拒时原来只表现为「按了没反应」）。
+   同时改成返回 boolean —— 原来返回 undefined，会被后续当成失败。
+
+4. **一次 Ctrl+V 贴出「图片 + 多余空文本节点」**：截图软件有时同时写入 image/png 和一份文本，
+   原代码无条件接着贴文字。改为只有「没贴成图」才去贴文字。
+
+**浏览器实测（headless Chrome + CDP，真实剪贴板 + 真实 Ctrl+V）**：
+- 写入一张 240×120 红蓝渐变 PNG → `Input.dispatchKeyEvent` 发真 Ctrl+V
+- 状态栏 **节点 0 → 1**；截图确认图片按 **240×120** 画在画布上（不是 100×100 占位），FPS 60
+- 0 uncaught exception
+
+**headless 验证坑（下次直接抄）**：
+- CDP `Input.dispatchKeyEvent` 用 `type:"rawKeyDown"` **不带 text 字段不会产生 keydown**，
+  只有 Control 到了、`v` 丢了 → 表现为「按了没反应」。要发 `type:"keyDown"` + `text:"v"`。
+- `navigator.clipboard.write` 在 headless 下抛 `Document is not focused`，
+  必须先 `Emulation.setFocusEmulationEnabled({enabled:true})` + `Browser.grantPermissions`。
+
+- 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 改动文件：imageNodeFactory.ts（重建）、copyEngine.tsx（+21/-7）、copyEngineImage.tsx（+45/-14）
+- 2 条 UX 冲突写入 pending.md（拖拽/批量粘贴、图片详情编辑区依赖已删的 plate）

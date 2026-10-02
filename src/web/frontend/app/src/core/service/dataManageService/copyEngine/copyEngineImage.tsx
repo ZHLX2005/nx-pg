@@ -90,21 +90,49 @@ export class CopyEngineImage {
     });
   }
 
-  public async pasteImageFromWebClipboard() {
+  /**
+   * 从浏览器剪贴板里取图片并落成 ImageNode。
+   *
+   * nx-pg 重写要点（原版这里是 Tauri 的 readImage + Image.rgba，Web 端无对应物）：
+   * 1. navigator.clipboard.read() 需要权限且只在用户手势+安全上下文下可用，
+   *    无条件 await 会把整个 paste 打断成 unhandled rejection —— 必须包 try/catch。
+   * 2. 返回布尔值而不是 undefined：调用方靠它判断「剪贴板里到底有没有图」，
+   *    返回 undefined 会被当成 falsy，图片其实已经贴上了却被后续逻辑当成失败。
+   */
+  public async pasteImageFromWebClipboard(): Promise<boolean> {
     const clipboard = navigator.clipboard as any;
-    if (!clipboard || typeof clipboard.read !== "function") return false;
-
-    const items = (await clipboard.read()) as Array<{
-      types: readonly string[];
-      getType: (type: string) => Promise<Blob>;
-    }>;
-
-    for (const item of items) {
-      const imageType = item.types.find((t) => t.startsWith("image/"));
-      if (!imageType) continue;
-      const blob = await item.getType(imageType);
-      const prepared = await prepareImageBlobForImport(blob);
-      await this.pasteImageBlob(prepared.blob);
+    if (!clipboard || typeof clipboard.read !== "function") {
+      toast.error("当前浏览器不支持读取剪贴板图片，请用 Chrome / Edge");
+      return false;
     }
+
+    let items: Array<{ types: readonly string[]; getType: (type: string) => Promise<Blob> }>;
+    try {
+      items = (await clipboard.read()) as typeof items;
+    } catch (err) {
+      // 权限被拒 / 非安全上下文（http 访问）都会走到这里。
+      // 必须给用户一句人话，否则只表现为「按了 Ctrl+V 什么都没发生」。
+      toast.error("浏览器拒绝了剪贴板读取权限，请在地址栏左侧允许剪贴板后重试");
+      return false;
+    }
+
+    let pasted = false;
+    for (const item of items ?? []) {
+      // 优先挑 png：截图软件写入的通常是 image/png，而部分应用会给 webp，
+      // 直接取第一个 image/* 可能拿到浏览器解不动的格式。
+      const imageType =
+        item.types.find((t) => t === "image/png") ??
+        item.types.find((t) => t.startsWith("image/"));
+      if (!imageType) continue;
+      try {
+        const blob = await item.getType(imageType);
+        const prepared = await prepareImageBlobForImport(blob);
+        await this.pasteImageBlob(prepared.blob);
+        pasted = true;
+      } catch (err) {
+        toast.error(`粘贴图片失败：${err instanceof Error ? err.message : String(err)}`);
+      }
+    }
+    return pasted;
   }
 }

@@ -43,3 +43,19 @@
   theme ↔ lightTheme/darkTheme 互相触发成环。本轮改为「只在用户主动挑主题时单向记一次」
   （记在 SettingsWindow 的 onChange 里，不在 watch 链里）。代价是新装用户若从未手动挑过亮色主题，
   首次点开关会落到默认值 morandi 而不是他上次看过的配色。属于可接受的语义差，不改
+## [轮 12] 粘贴图片不带「拖拽入画布」与多图批量粘贴
+- 文件：`core/service/dataManageService/copyEngine/copyEngineImage.tsx`
+- 原 project-graph 行为：`dragFileIntoStageEngine` 支持把图片文件直接拖进画布，
+  且一次可拖多个；粘贴时按 `Settings.wrapImageInGroup` 自动包一层分区
+- 提议 UX：浏览器端支持拖拽多图入台；粘贴多张时按顺序并排而非叠在鼠标点
+- 冲突点：拖拽入台引擎在 nx-pg 里依赖 Tauri 的文件拖放事件（`onDragDropEvent` shim 是空实现），
+  补齐等于新增一条数据入口，不属于「让已有按钮能用」的范围。本轮把「粘贴单图能用」修通即可，
+  批量与拖拽留作独立迭代
+
+## [轮 12] 图片节点没有详情编辑区
+- 文件：`core/service/dataManageService/imageNodeFactory.ts`
+- 原 project-graph 行为：ImageNode 的 `details` 是 plate 富文本值，双击可打开图片详情编辑器
+  （裁剪、替换、查看元信息）
+- 提议 UX：至少给个「双击换图 / 删除」的小面板
+- 冲突点：详情编辑器整套依赖 plate（轮 4 已整体删除并 stub 掉）。重建它等于把删掉的
+  富文本体系搬回来。本轮只保证「图能贴上、能显示、能随 .prg 保存」，编辑区不重建

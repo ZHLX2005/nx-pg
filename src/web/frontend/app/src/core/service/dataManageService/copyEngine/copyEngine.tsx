@@ -1,6 +1,6 @@
 import { Project, service } from "@/core/Project";
 import { Settings } from "@/core/service/Settings";
-import { isLinux, isMac, isWindows } from "@/utils/platform";
+import { isLinux, isMac, isWeb, isWindows } from "@/utils/platform";
 import { ConnectableAssociation } from "@/core/stage/stageObject/abstract/Association";
 import { Entity } from "@/core/stage/stageObject/abstract/StageEntity";
 import { StageObject } from "@/core/stage/stageObject/abstract/StageObject";
@@ -255,8 +255,16 @@ export class CopyEngine {
       await this.pasteFromWebClipboard();
     } else if (mode === "tauri") {
       await this.pasteFromTauriClipboard();
+    } else if (isWeb) {
+      // nx-pg：浏览器里只有 Web Clipboard API 一条路。
+      // 原版的 AUTO 分支按 isMac/isWindows/isLinux 选路线，但 utils/platform.tsx 里
+      // 这三个常量都带 `!isWeb &&` 前缀 —— 浏览器下三者恒为 false，会一路掉进最后的
+      // 「未知系统」兜底走 tauri 分支，而 tauri 分支调的 readImage() 在 shim 里是
+      // 无条件 throw。结果就是 AUTO 模式下浏览器粘贴必失败，且报「Tauri模式粘贴图片失败」——
+      // 在 Web 版里这句提示本身就是误导。浏览器直接走 webview。
+      await this.pasteFromWebClipboard();
     } else {
-      // AUTO模式
+      // AUTO模式（Tauri 桌面端，保持原行为）
       if (isMac) {
         // mac优先用web模式，比较安全不容易崩溃
         await this.pasteFromWebClipboard();
@@ -275,15 +283,21 @@ export class CopyEngine {
 
   private async pasteFromWebClipboard() {
     try {
-      await this.copyEngineImage.pasteImageFromWebClipboard();
+      // nx-pg：只有「没贴成图」才去贴文字。
+      // 截图粘贴时剪贴板可能同时带 image/png 与一份文本（比如某些软件会把图片
+      // 和它的 alt/文件名一起写进去），原来是无条件接着贴文字 → 一次 Ctrl+V
+      // 在画布上留下一个图片节点 + 一个多余的空文本节点。
+      const pastedImage = await this.copyEngineImage.pasteImageFromWebClipboard();
 
-      try {
-        const text = await navigator.clipboard.readText();
-        if (text && text.length > 0) {
-          this.copyEngineText.copyEnginePastePlainText(text);
+      if (!pastedImage) {
+        try {
+          const text = await navigator.clipboard.readText();
+          if (text && text.length > 0) {
+            this.copyEngineText.copyEnginePastePlainText(text);
+          }
+        } catch {
+          toast.error("无法读取系统剪贴板");
         }
-      } catch {
-        toast.error("无法读取系统剪贴板");
       }
     } finally {
       setTimeout(() => {
