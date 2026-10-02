@@ -51,7 +51,7 @@ import type { CopyEngine } from "@/core/service/dataManageService/copyEngine/cop
 import type { Effects } from "@/core/service/feedbackService/effectEngine/effectMachine";
 import { StageStyleManager } from "@/core/service/feedbackService/stageStyle/StageStyleManager";
 // nx-pg：单 c 键切换左键「创建/连线」模式 + HUD 提示
-import type { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/ControllerEntityCreate";
+import type { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/LeftButtonModeSwitch";
 import { Settings } from "@/core/service/Settings";
 import type { Camera } from "@/core/stage/Camera";
 import type { Canvas } from "@/core/stage/Canvas";

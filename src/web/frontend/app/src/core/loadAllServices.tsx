@@ -33,7 +33,7 @@ import { InputElement } from "@/core/render/domElement/inputElement";
 import { AutoLayoutFastTree } from "@/core/service/controlService/autoLayoutEngine/autoLayoutFastTreeMode";
 import { AutoLayout } from "@/core/service/controlService/autoLayoutEngine/mainTick";
 import { ControllerUtils } from "@/core/service/controlService/controller/concrete/utilsControl";
-import { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/ControllerEntityCreate";
+import { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/LeftButtonModeSwitch";
 import { Controller } from "@/core/service/controlService/controller/Controller";
 import { KeyboardOnlyEngine } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyEngine";
 import { KeyboardOnlyGraphEngine } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyGraphEngine";
