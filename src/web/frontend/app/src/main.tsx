@@ -1,6 +1,11 @@
 // nx-pg web 版入口：从 project-graph main.tsx 精简而来。
 // 砍掉：CLI 模式、桌面验收、auth、deep-link、vconsole、Tauri 窗口显示、启动文件恢复（改 server 最近文件）。
 // 保留：i18n、各 Manager init、App 渲染。
+
+// 最早阶段：屏蔽浏览器前进/后退/右键手势（必须在 App.tsx 之前装上，
+// 否则 App 内的事件监听虽捕获但浏览器已先完成默认行为——例如右键菜单无法 preventDefault）
+import "@/core/environment/browserGestureGuard";
+
 import { Toaster } from "@/components/ui/sonner";
 import { MouseLocation } from "@/core/service/controlService/MouseLocation";
 import { RecentFileManager } from "@/core/service/dataFileService/RecentFileManager";
