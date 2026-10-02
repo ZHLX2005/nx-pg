@@ -102,10 +102,44 @@ export default function App() {
       Telemetry.event("未知错误", String(event.error));
     });
 
-    // 监听主题样式切换（nx-pg: 主题切换不再回写 lightTheme/darkTheme —— 原 watch 链
-    // 在 Settings.set 无条件通知 listeners 的机制下会互相打乒乓，headless 下同步死循环）
+    // 监听主题样式切换（应用主题 yml → :root CSS 变量 → tailwind token）
+    //
+    // nx-pg：这里**只做单向的 theme → 界面**，绝不回写 lightTheme/darkTheme。
+    // 原版（project-graph/app/src/App.tsx:107-128）有 4 个互相回写的 watcher：
+    //   theme → 回写 lightTheme/darkTheme，themeMode → 回写 theme，
+    //   lightTheme/darkTheme → 又回写 theme。
+    // 但 Settings 的 set trap 会**无条件**通知 listeners（core/service/Settings.tsx:1063），
+    // 于是 A 改 B、B 改 A 无限互相触发 —— 轮 4 在 headless 下实测成同步死循环、白屏，
+    // 当时把三个 watcher 整个删掉，代价就是「黑夜模式开关点了没反应」。
+    //
+    // 现在改成无环的两级，语义与原版等价但不可能成环：
+    //   themeMode → theme（用户意图：我要亮/暗）→ 界面
+    //   theme     → 界面
+    // 「记住上次用的亮/暗主题」由 SettingsWindow 在用户**主动**挑主题时单向记一次实现，
+    // 不放在 watch 链里，避免任何回边。
     Settings.watch("theme", async (value) => {
       await Themes.applyThemeById(value);
+    });
+
+    // 监听主题模式切换（明暗）→ 切到对应的亮/暗主题。
+    // 链路只有一个出口：写 Settings.theme，由上面的 theme watcher 统一 applyThemeById。
+    //
+    // 首帧必须特判：Settings.watch 在注册时**同步立即回调一次**当前值（Settings.tsx:1078）。
+    // 那次调用不是「用户切换」，若照常处理会把启动主题强行拽成 darkTheme 的值 ——
+    // 默认 theme=dark-blue 而 darkTheme=dark，于是每次开 app 都把用户存的蓝色黑夜
+    // 覆盖成黑夜。所以首帧改为「反过来校准 themeMode」：已显示的主题才是事实来源，
+    // 开关的位置必须和眼睛看到的颜色一致（否则加载瞬间开关显示「亮」而界面是黑的）。
+    let isFirstThemeModeSync = true;
+    const unwatchThemeMode = Settings.watch("themeMode", (mode) => {
+      if (isFirstThemeModeSync) {
+        isFirstThemeModeSync = false;
+        const actual = Themes.builtinThemes.find((t) => t.metadata.id === Settings.theme)?.metadata.type;
+        if (actual && actual !== mode) Settings.themeMode = actual;
+        return;
+      }
+      const target = mode === "light" ? Settings.lightTheme : Settings.darkTheme;
+      if (!target || Settings.theme === target) return;
+      Settings.theme = target;
     });
 
     // 监听窗口背景不透明度
@@ -166,6 +200,7 @@ export default function App() {
       unwatchWindowBackgroundAlpha();
       unwatchUiScale();
       unwatchMaxFps();
+      unwatchThemeMode();
       globalShortcutManager.dispose();
     };
   }, []);

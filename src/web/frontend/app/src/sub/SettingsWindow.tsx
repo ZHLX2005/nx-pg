@@ -23,12 +23,11 @@ function useSetting<K extends string>(key: K): [unknown, (v: unknown) => void] {
   return [value, set];
 }
 
-const THEME_OPTIONS = [
-  { id: "dark", label: "黑夜" },
-  { id: "light", label: "白天" },
-  { id: "catppuccin-mocha", label: "Catppuccin Mocha" },
-  { id: "catppuccin-latte", label: "Catppuccin Latte" },
-];
+// 主题列表直接来自 themes/*.yml 的 frontmatter，不再手写 id 列表。
+// 手写列表必然会漏（之前就漏了 lightTheme 默认值 morandi，导致 <select> 显示空白），
+// 而漏掉的那个 id 恰好是明暗开关要用的默认亮色主题 —— 漏了等于开关切回去是空的。
+// name 字段在前端 yml 里已经是中文（「黑夜」「莫兰迪」…），直接用即可。
+const THEME_OPTIONS = Themes.builtinThemes.map((t) => ({ id: t.metadata.id, label: t.metadata.name }));
 
 export default function SettingsPanel() {
   const [theme, setTheme] = useSetting("theme");
@@ -48,10 +47,23 @@ export default function SettingsPanel() {
             className="bg-card border-border rounded border px-2 py-1"
             value={String(theme)}
             onChange={(e) => {
-              setTheme(e.target.value);
-              void Themes.applyThemeById(e.target.value);
+              const id = e.target.value;
+              setTheme(id);
+              // 记住「这种明暗各自上次用的哪个主题」，供标题栏的明暗开关来回切。
+              // 必须记在**用户动作**里而不是 App.tsx 的 watch 链里：
+              // watch 链里回写 lightTheme/darkTheme 正是轮 4 死循环的成因
+              // （Settings 的 set trap 无条件通知 listeners，A 改 B、B 改 A 会成环）。
+              const type = Themes.builtinThemes.find((t) => t.metadata.id === id)?.metadata.type;
+              if (type === "light") {
+                (Settings as Record<string, unknown>).lightTheme = id;
+              } else if (type === "dark") {
+                (Settings as Record<string, unknown>).darkTheme = id;
+              }
             }}
           >
+            {/* 选项直接来自 themes/*.yml（前端 metadata.name 已是中文，如「黑夜」「莫兰迪」）。
+                之前这里硬编码 4 个 id，漏掉了 lightTheme 的默认值 morandi ——
+                结果 <select value> 匹配不到任何 option，控件显示成空白，用户以为坏了。 */}
             {THEME_OPTIONS.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.label}

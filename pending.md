@@ -23,3 +23,23 @@
 - 提议 UX：stub 通过 lookupAllNamespaces 直接扫 i18next.options.resources，绕过 ns 隔离，让 UI 文本一定显示中文
 - 冲突点：lookupAllNamespaces 跨 namespace 兜底 = 隐藏了 namespace 不匹配的 bug；严格按 i18next 设计应改 useTranslation 调用约定（但 core 文件不能改）。当前选择是"显示对用户"，放弃 "对齐原 i18next 语义"
 
+## [轮 11] 设置面板的主题下拉只剩「明/暗两类」，无法挑具体配色
+- 文件：`src/web/frontend/app/src/sub/SettingsWindow.tsx`
+- 原 project-graph 行为：完整 SettingsWindow 有独立的「外观 / 自定义」分区，可从 10 个内置主题
+  （catppuccin 四款 / dark / dark-blue / light / macaron / morandi / park）里任选，
+  且每个明暗档位各自记住上次用的那一个（lightTheme / darkTheme 两个设置项）
+- 提议 UX：把主题列表补全到全部内置主题，并按「亮/暗」分组或加小色块预览，
+  让用户能直接选 morandi / park / dark-blue 而不是只能开合明暗
+- 冲突点：原版外观分区属于 plate 富文本 + keybinds 多面板体系的一部分（轮 4 已整体删除），
+  重建它等于把删掉的东西搬回来。本轮只修「列表与实际值对不上」这个 bug（下拉显示空白），
+  不扩建面板 —— 明暗两档够个人日常用，扩到 10 个属于范围外的功能补齐
+
+## [轮 11] 明暗开关切换时「记住上次用的那档主题」需要用户先在设置里挑过
+- 文件：`src/web/frontend/app/src/App.tsx`（themeMode watcher）
+- 原 project-graph 行为：lightTheme/darkTheme 由 theme watcher 自动回写，
+  即用即存，用户从不需要手动挑
+- 提议 UX：同样自动记住（用户开一次亮色主题就记为 lightTheme）
+- 冲突点：自动回写正是轮 4 死循环的根因 —— Settings 的 set trap 无条件通知 listeners，
+  theme ↔ lightTheme/darkTheme 互相触发成环。本轮改为「只在用户主动挑主题时单向记一次」
+  （记在 SettingsWindow 的 onChange 里，不在 watch 链里）。代价是新装用户若从未手动挑过亮色主题，
+  首次点开关会落到默认值 morandi 而不是他上次看过的配色。属于可接受的语义差，不改

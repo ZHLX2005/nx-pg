@@ -400,3 +400,34 @@ DropWindowCover 提示文本（之前就是中文）、Command Palette 占位符
 - 「上限」改为经 Settings.watch 实时跟随（原先直接读 `Settings.maxFps`，是启动快照）
 - 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
 - 改动文件：stage-status-bar.tsx（新增）+ App.tsx（-2/+6）
+
+## 轮 11 完成记录 — 修黑夜模式失效（Agent.md 明列需求）✅ 真机实测变色
+
+**根因**：轮 4 修死循环时把 `themeMode` / `lightTheme` / `darkTheme` 三个 watcher 整个删了，
+只剩 `theme` 一个。`ThemeModeSwitch` 只写 `Settings.themeMode`，没人消费 → 开关点了没反应。
+**这是我们自己在轮 4 引入的回归**，不是原项目缺功能。
+
+**修法（无环的两级链路）**：
+- `themeMode → theme → 界面`；`theme → 界面`。只有一个出口（theme watcher 里 applyThemeById）
+- 绝不回写 lightTheme/darkTheme —— Settings 的 set trap 无条件通知 listeners，
+  原版 4 个 watcher 互相回写必然成环（轮 4 headless 实测同步死循环白屏）
+- 首帧特判：`Settings.watch` 注册时**同步立即回调一次**（Settings.tsx:1078）。
+  默认 `theme=dark-blue` 而 `darkTheme=dark`，照常处理会每次开 app 把用户存的蓝色黑夜覆盖成黑夜。
+  改为首帧反向校准 themeMode（已显示的主题才是事实来源，开关位置必须与眼睛一致）
+
+**顺带修的 bug**：设置面板主题 `<select>` 的选项是手写 4 个 id，漏了 `lightTheme` 默认值
+`morandi` → value 匹配不到任何 option，**控件显示空白**。改为从 `themes/*.yml` frontmatter 生成，
+不可能再漏。用户挑主题时单向记一次 lightTheme/darkTheme（供开关来回切），不走 watch 链。
+
+**真机实测（headless Chrome + CDP，非仅改代码）**：
+| | `--background` | color-scheme |
+|---|---|---|
+| 点开关前 | `oklch(0.141 0.005 285.823)` | dark |
+| 点开关后 | `oklch(0.97 0.01 230)`（morandi） | light |
+
+连点 6 次：dark→light→dark→light→dark→light 严格交替，**0 uncaught exception**，
+canvas 存活 —— 轮 4 的乒乓死循环确认不再发生。
+
+- 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 改动文件：App.tsx（+30）、sub/SettingsWindow.tsx（+14/-6）
+- 2 条 UX 语义差写入 pending.md（主题列表只覆盖明暗两档 / 记忆上次配色需手动挑过）
