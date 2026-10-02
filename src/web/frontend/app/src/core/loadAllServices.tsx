@@ -33,6 +33,7 @@ import { InputElement } from "@/core/render/domElement/inputElement";
 import { AutoLayoutFastTree } from "@/core/service/controlService/autoLayoutEngine/autoLayoutFastTreeMode";
 import { AutoLayout } from "@/core/service/controlService/autoLayoutEngine/mainTick";
 import { ControllerUtils } from "@/core/service/controlService/controller/concrete/utilsControl";
+import { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/ControllerEntityCreate";
 import { Controller } from "@/core/service/controlService/controller/Controller";
 import { KeyboardOnlyEngine } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyEngine";
 import { KeyboardOnlyGraphEngine } from "@/core/service/controlService/keyboardOnlyEngine/keyboardOnlyGraphEngine";
@@ -91,6 +92,9 @@ export function loadAllServicesBeforeInit(project: Project): void {
   project.loadService(StageStyleManager);
   // project.loadService(KeyBinds);
   project.loadService(ControllerUtils);
+
+  // nx-pg：单 c 键切换左键「创建/连线」模式 + HUD 提示
+  project.loadService(LeftButtonModeSwitch);
 
   // 基础算法
   project.loadService(SectionMethods);

@@ -103,6 +103,8 @@ export class Renderer {
     this.renderCenterPointer();
     this.renderZoomLevelStage();
     this.renderDebugDetails();
+    // nx-pg：单 c 键切换左键模式后的中央 HUD 提示（1 秒后自动消失）
+    this.project.leftButtonModeSwitch.renderHUD(this.project.canvas.ctx, this.w, this.h);
   }
 
   private renderRemoteCursors() {

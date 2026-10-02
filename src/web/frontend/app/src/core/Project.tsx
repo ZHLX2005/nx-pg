@@ -50,6 +50,8 @@ import type { ContentSearch } from "@/core/service/dataManageService/contentSear
 import type { CopyEngine } from "@/core/service/dataManageService/copyEngine/copyEngine";
 import type { Effects } from "@/core/service/feedbackService/effectEngine/effectMachine";
 import { StageStyleManager } from "@/core/service/feedbackService/stageStyle/StageStyleManager";
+// nx-pg：单 c 键切换左键「创建/连线」模式 + HUD 提示
+import type { LeftButtonModeSwitch } from "@/core/service/controlService/controller/concrete/ControllerEntityCreate";
 import { Settings } from "@/core/service/Settings";
 import type { Camera } from "@/core/stage/Camera";
 import type { Canvas } from "@/core/stage/Canvas";
@@ -618,6 +620,8 @@ declare module "./Project" {
     sectionMethods: SectionMethods;
     graphMethods: GraphMethods;
     stageStyleManager: StageStyleManager;
+    // nx-pg：单 c 键切换左键「创建/连线」模式 + HUD 提示
+    leftButtonModeSwitch: LeftButtonModeSwitch;
     autoSaveBackup: AutoSaveBackupService;
     referenceManager: ReferenceManager;
     collaboration: CollaborationService;

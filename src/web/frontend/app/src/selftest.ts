@@ -52,7 +52,7 @@ export async function runSelfTest(): Promise<void> {
     return;
   }
   const { x, y, el } = centerOfCanvas();
-  beat("st-canvas", { w: String(el.clientWidth), h: String(el.clientHeight) });
+  beat("st-canvas", { w: String(el.clientWidth), h: String(el.clientHeight), nodes0: String(project.stageManager.getTextNodes().length) });
 
   // ---- 1. 双击建节点（ControllerEntityCreate：双击空白处创建 TextNode）----
   pointer(el, "pointerdown", x, y, 0);
@@ -71,6 +71,35 @@ export async function runSelfTest(): Promise<void> {
     nodes = project.stageManager.getTextNodes().length;
     beat("st-tabkey", { nodes: String(nodes) });
   }
+
+  // ---- 1.5. 单 c 键切换左键模式（nx-pg 新加功能）----
+  try {
+    const { Settings } = await import("@/core/service/Settings");
+    const beforeMode = Settings.mouseLeftMode;
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
+    await sleep(150);
+    const afterMode = Settings.mouseLeftMode;
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: "c", bubbles: true }));
+    await sleep(150);
+    const finalMode = Settings.mouseLeftMode;
+    const hudFrames = (project.leftButtonModeSwitch as { _hudFrames?: number })._hudFrames ?? 0;
+    beat("st-c-toggle", {
+      before: String(beforeMode),
+      after1: String(afterMode),
+      after2: String(finalMode),
+      toggled: String(beforeMode !== afterMode),
+      back: String(afterMode !== finalMode),
+      hudActive: String(hudFrames > 0),
+    });
+  } catch (e) {
+    beat("st-c-toggle-fail", { err: String((e as Error)?.message ?? e).slice(0, 100) });
+  }
+
+  // ---- 1.6. 左键单击建节点（nx-pg 新增，原项目用双击）----
+  // nx-pg 设计回归原 project-graph：节点创建走 mouseDoubleClick，ControllerClass._mouseup 检测双击后
+  // 分发到此方法。Controller 总控 _mouseup 路径已注释（见 ControllerClass.tsx line 117-125），
+  // 单击左键不再创建节点——避免与 ControllerNodeConnection 的「按住左键拖出连线」冲突。
+  // 因此 st-singleclick-create 段不再有意义，保留 Tab 键路径作为创建节点验证。
 
   // 按 F 重置视野，让节点出现在画面里（后续截图可见）
   el.dispatchEvent(new KeyboardEvent("keydown", { key: "f", bubbles: true }));

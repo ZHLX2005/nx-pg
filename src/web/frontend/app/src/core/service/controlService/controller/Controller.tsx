@@ -236,6 +236,10 @@ export class Controller {
     }
     const key = event.key.toLowerCase();
     this.pressingKeySet.add(key);
+    // nx-pg：单 c 键切换左键「创建/连线」模式（HUD 提示）
+    if ((event.key === "c" || event.key === "C") && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      this.project.leftButtonModeSwitch.onPressC();
+    }
   }
 
   private keyup(event: KeyboardEvent) {
