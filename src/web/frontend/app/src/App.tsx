@@ -36,6 +36,7 @@ import CommandPalette from "./CommandPalette";
 import { DropWindowCover } from "./DropWindowCover";
 import DockedArea from "./components/docked-area";
 import RenderOverlays from "./components/overlay-host";
+import StageStatusBar from "./components/stage-status-bar";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
 import { cn } from "./utils/cn";
@@ -56,6 +57,8 @@ export default function App() {
   const [isClassroomMode, setIsClassroomMode] = useAtom(isClassroomModeAtom);
   const [windowBackgroundAlpha, setWindowBackgroundAlpha] = useState(Settings.windowBackgroundAlpha);
   const [uiScalePercent, setUiScalePercent] = useState(Settings.uiScalePercent);
+  // 状态栏要显示 FPS 上限，用户在设置面板改了 maxFps 后得立刻跟着变，不能是启动时的快照
+  const [maxFps, setMaxFps] = useState(Settings.maxFps);
 
   const contextMenuTriggerRef = useRef<HTMLDivElement>(null);
 
@@ -116,6 +119,11 @@ export default function App() {
       setUiScalePercent(value);
     });
 
+    // FPS 上限跟随设置面板实时更新（状态栏展示用）
+    const unwatchMaxFps = Settings.watch("maxFps", (value) => {
+      setMaxFps(value);
+    });
+
     // 恢复窗口位置大小
     restoreStateCurrent(StateFlags.SIZE | StateFlags.POSITION | StateFlags.MAXIMIZED);
 
@@ -157,6 +165,7 @@ export default function App() {
       // 清理全局快捷键资源
       unwatchWindowBackgroundAlpha();
       unwatchUiScale();
+      unwatchMaxFps();
       globalShortcutManager.dispose();
     };
   }, []);
@@ -368,6 +377,10 @@ export default function App() {
             </ContextMenuTrigger>
             <MyContextMenuContent />
           </ContextMenu>
+
+          {/* nx-pg：画布状态栏（缩放 / 实体计数 / FPS）。
+              放在「已缩放 UI 层」内即可随 UI 缩放，组件自身不要再吃 zoomStyle —— 重复叠加会变成平方级缩放。 */}
+          {activeResourceTab instanceof Project && <StageStatusBar project={activeResourceTab} maxFps={maxFps} />}
         </div>
 
         {/* NOT zoomed - 使用固定/全屏定位的组件，缩放会破坏它们的坐标计算 */}

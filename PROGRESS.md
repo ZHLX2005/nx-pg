@@ -377,3 +377,26 @@ DropWindowCover 提示文本（之前就是中文）、Command Palette 占位符
 - bundle 大小变化：+0KB（zh_CN 资源本来就被 import，无新依赖）
 
 
+
+## 轮 10 完成记录 — 画布状态栏（审查后修复 3 个真 bug 才提交）
+
+轮 4 遗留未提交的 `components/stage-status-bar.tsx`（左下角：缩放% / 节点 / 连线 / 选中 / FPS / 上限）。
+本轮**没有盲信上一轮**，逐条核对后发现 3 个真实缺陷，修好才提交：
+
+1. **双重缩放**：组件被渲染在 App.tsx:342 的「已缩放 UI 层」内，却自己又吃了一份 `zoomStyle`
+   → UI 缩放 150% 时状态栏实际是 225%。已去掉组件侧的 zoomStyle，改为只放在已缩放层内。
+2. **状态栏吃掉画布左下角点击**：父层 className 是 `*:pointer-events-auto`，编译成
+   `:is(.\*\:pointer-events-auto>*)`（特异性 0,2,0），高于普通 `.pointer-events-none`（0,1,0）
+   → 左下角无法框选/建节点。已改为 `pointer-events-none!`（编译验证：
+   `.pointer-events-none\!{pointer-events:none!important}`）。
+3. **整轮功能等于没上线**：原实现用 `if (!project.isRunning) return null` 当渲染门槛。
+   但画布本来就要等鼠标移入才 loop()（Canvas.tsx 的 mousemove），而 React 子组件 effect 先于
+   父组件 effect 执行 —— App.tsx 里 Settings.watch 触发的 `activeResourceTab.loop()` 尚未跑完，
+   状态栏首帧就判 false → 永久返回 null。已去掉该门槛，改惰性初始化 + 250ms 轮询。
+
+另修一处口径错误：`nodeCount` 原为 `getTextNodes()+getSections()`，漏掉 ImageNode/UrlNode/SvgNode
+等其他 ConnectableEntity（粘贴一张图片会显示「节点 0」）。改用 `getEntities()`。
+
+- 「上限」改为经 Settings.watch 实时跟随（原先直接读 `Settings.maxFps`，是启动快照）
+- 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 改动文件：stage-status-bar.tsx（新增）+ App.tsx（-2/+6）
