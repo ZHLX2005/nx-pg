@@ -106,11 +106,17 @@ export class Renderer {
   }
 
   private renderRemoteCursors() {
+    // nx-pg：协作服务已裁掉（loadAllServices 不再注册 CollaborationService），
+    // project.collaboration 为 undefined——个人本地使用没有远程光标，直接跳过。
+    const collab = this.project.collaboration as
+      | { currentPresences: { sessionId: string }[]; getRemoteCursors(): unknown[]; getRemoteCursorChats(): unknown[] }
+      | undefined;
+    if (!collab) return;
     const presences = new Map(
-      this.project.collaboration.currentPresences.map((presence) => [presence.sessionId, presence]),
+      collab.currentPresences.map((presence) => [presence.sessionId, presence]),
     );
     const ctx = this.project.canvas.ctx;
-    for (const cursor of this.project.collaboration.getRemoteCursors()) {
+    for (const cursor of collab.getRemoteCursors()) {
       const presence = presences.get(cursor.sessionId);
       if (!presence) continue;
       const location = this.transformWorld2View(new Vector(cursor.x, cursor.y));
@@ -139,7 +145,7 @@ export class Renderer {
       ctx.fillText(label, 19, 28);
       ctx.restore();
     }
-    for (const chat of this.project.collaboration.getRemoteCursorChats()) {
+    for (const chat of collab.getRemoteCursorChats()) {
       const presence = presences.get(chat.sessionId);
       if (!presence) continue;
       const location = this.transformWorld2View(new Vector(chat.x, chat.y));
