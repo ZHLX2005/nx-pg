@@ -51,8 +51,10 @@ export default defineConfig({
       'virtual:original-class-name': path.resolve(__dirname, 'src/web/frontend/app/src/virtual/original-class-name.ts'),
       // nx-pg 不安装 tauri 专属插件；指向浏览器 stub（cpuInfo 来自 navigator.hardwareConcurrency）
       'tauri-plugin-system-info-api': path.resolve(__dirname, 'src/web/frontend/app/shims/tauri-plugin-system-info-api.ts'),
-      // lucide-react 整体占位：详见 src/web/frontend/app/src/lucide-stub.tsx
-      'lucide-react': path.resolve(__dirname, 'src/web/frontend/app/src/lucide-stub.tsx'),
+      // lucide-react 用真包（lucide-react@0.545 + react 19.3 实测 SSR/构建均正常）。
+      // 轮 4 曾把它整体 alias 到 lucide-stub.tsx，记录的原因是「forwardRef is not a function」——
+      // 轮 13 复核：React 19.3 的 forwardRef 仍是函数，lucide 的 peerDependencies 也写着 ^19.0.0，
+      // 实测 10 个图标 SSR 渲染出 10 种不同 path。该别名已移除。
       // react-i18next 占位：详见 src/web/frontend/app/src/react-i18next-stub.ts
       'react-i18next': path.resolve(__dirname, 'src/web/frontend/app/src/react-i18next-stub.ts'),
       // platejs 已被项目代码 import type { Value } 等；指向最薄的 stub（带 /react 子路径）

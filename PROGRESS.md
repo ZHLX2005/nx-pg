@@ -473,3 +473,30 @@ canvas 存活 —— 轮 4 的乒乓死循环确认不再发生。
 - 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
 - 改动文件：imageNodeFactory.ts（重建）、copyEngine.tsx（+21/-7）、copyEngineImage.tsx（+45/-14）
 - 2 条 UX 冲突写入 pending.md（拖拽/批量粘贴、图片详情编辑区依赖已删的 plate）
+
+## 轮 13 完成记录 — 换成真 lucide 图标（复核轮 4 的结论已过期）
+
+轮 4 把整个 lucide-react alias 到 `lucide-stub.tsx`（1172 行），所有图标渲染成**同一个**
+「盒子」占位形状。本轮复核发现当时的结论**已经站不住**：
+
+- React 19.3 的 `React.forwardRef` 仍是 **function**（轮 4 记的 "forwardRef is not a function" 不复现）
+- node_modules 只有一份 react@19.3.0（无多副本导致的双实例问题），lucide 的 peerDependencies 写着 `^19.0.0`
+- SSR 实测 10 个图标渲染出 **10 种不同 path**
+
+改动：删掉 vite alias + 删除 1172 行 stub，改用真包（`lucide-react@0.545`，早已装在 package.json 里）。
+
+**浏览器实测（headless Chrome）**：页面 `svg.lucide` 共 23 个、**23 种不同形状、0 个空图标**、
+0 uncaught exception、canvas 正常。截图确认菜单栏（文件/视野/操作/设置/AI/视图/扩展/关于）、
+右侧工具栏、窗口控制按钮全部是各自正确的图形 —— 此前它们全是同一个盒子。
+
+**代价与取舍（如实记录）**：bundle 2,642 kB → 3,478 kB（gzip 799 → 949 kB，**+150 kB**）。
+原因是 `context-menu-content.tsx` 与 `global-menu-content.tsx` 用
+`import * as LucideIcons` 按名字运行时查表（图标名来自用户可改的 `Settings.contextMenuConfig`，
+共 158 个），tree-shaking 对动态下标无效。
+试过删掉同样用命名空间导入的 `dynamic-icon.tsx`（无任何引用的死代码），bundle **纹丝不动**，
+说明体积不是它造成的 —— 于是把它还原了（不是本轮该删的东西）。要压回体积只能把 158 个图标名
+做成静态映射表，但配置项来自用户 localStorage，新增名字会直接查不到而丢图标，
+对个人自用工具不划算，故保持现状。
+
+- 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 改动文件：vite.config.js（-2/+4）、lucide-stub.tsx（删除 1172 行）
