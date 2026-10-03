@@ -1,7 +1,12 @@
-// 单 c 键切换左键「创建/连线」模式 + HUD 提示。
+// 单 c 键切换左键「创建」与「连线/删除」模式 + HUD 提示。
 //
 // 背景：Edge 等浏览器自带手势层会吞掉画布上的左键事件，此时用户无法用左键拖出连线。
 // 单 c 键把 mouseLeftMode 在 selectAndMove ↔ connectAndCut 之间切换，作为兜底。
+//
+// 两档的真实语义（由既有 controller 分发，本服务只负责切换与提示）：
+//   selectAndMove  = 创建模式：双击空白建节点、左键拖框选、拖动节点
+//   connectAndCut  = 连线/删除模式：左键拖出连线（ControllerNodeConnection），
+//                    左键划过节点/连线切割删除（ControllerCutting）
 // 原 project-graph 的 Settings.mouseLeftMode 已有这两档，ControllerNodeConnection
 // 的 mousedown 分支已按此分发，所以这里只做「切换 + 提示」，不新增交互语义。
 //
@@ -54,7 +59,7 @@ export class LeftButtonModeSwitch {
     if (this._hudFrames <= 0) return;
     const text =
       this._lastMode === "connectAndCut"
-        ? "Mode · 连线（左键拖出）"
+        ? "Mode · 连线/删除（左键拖出连线，划过节点切割删除）"
         : "Mode · 创建（双击空白建节点）";
     ctx.save();
     ctx.font = "16px sans-serif";
