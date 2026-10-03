@@ -59,8 +59,12 @@ function getOpeningProject(ownershipId: string) {
   return opening;
 }
 
+// nx-pg：浏览器无法真正打开本地文件夹（shellOpen 走 shim 静默无效）。
+// 把路径写到 toast 让用户至少能复制，或后续接"复制到剪贴板"。
 export function openCurrentProjectFolder(project: Project) {
-  shellOpen(PathString.dirPath(project.uri.fsPath));
+  const dir = PathString.dirPath(project.uri.fsPath);
+  navigator.clipboard.writeText(dir).catch(() => {});
+  toast.message(`已复制工程目录到剪贴板：${dir}`);
 }
 
 export async function onNewDraft() {

@@ -28,15 +28,18 @@ export namespace QuickSettingsManager {
   /**
    * 默认的快捷设置项列表（8个布尔类型的设置项）
    */
+  // nx-pg：原版默认 8 项里 isStealthModeEnabled/stealthModeReverseMask/showDebug
+  // 对应的菜单入口已在轮 1 删除，保留会让右栏常驻 3 个与全局 UI 矛盾的孤立开关。
+  // 换成 web 高频项（showBackgroundDots/wrapImageInGroup/enableDragAutoAlign/...）。
   const DEFAULT_QUICK_SETTINGS: QuickSettingItem[] = [
-    { settingKey: "isStealthModeEnabled" },
-    { settingKey: "stealthModeReverseMask" },
+    { settingKey: "showBackgroundDots" },
+    { settingKey: "wrapImageInGroup" },
+    { settingKey: "enableDragAutoAlign" },
     { settingKey: "forceHideTextNodeBorder" },
     { settingKey: "alwaysShowDetails" },
-    { settingKey: "showDebug" },
-    { settingKey: "enableDragAutoAlign" },
     { settingKey: "reverseTreeMoveMode" },
     { settingKey: "textIntegerLocationAndSizeRender" },
+    { settingKey: "showRecentFilesThumbnails" },
   ];
 
   export async function init() {

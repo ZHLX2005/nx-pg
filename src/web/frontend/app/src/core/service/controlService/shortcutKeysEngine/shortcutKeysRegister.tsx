@@ -379,6 +379,21 @@ async function exportDeepLinkWithDialog(
   await Dialog.copy("导出 prg 协议链接", description, url);
 }
 
+// nx-pg：浏览器无原生「打开本地文件夹」能力。统一改 toast + 复制路径到剪贴板，
+// helper 避免每个 handler 自己 fetch + try/catch。
+let _workspaceCache: string | null = null;
+async function fetchWorkspacePath(): Promise<string> {
+  if (_workspaceCache !== null) return _workspaceCache;
+  try {
+    const res = await fetch("/api/project/workspace");
+    const body = (await res.json().catch(() => null)) as { ok?: boolean; data?: { path?: string } } | null;
+    _workspaceCache = body?.data?.path ?? "";
+  } catch {
+    _workspaceCache = "";
+  }
+  return _workspaceCache;
+}
+
 export const allKeyBinds: KeyBindItem[] = [
   {
     id: "test",
@@ -3381,11 +3396,14 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: FolderClock,
     when: whenAlways,
     onPress: async () => {
-      if (Settings.autoBackupCustomPath && Settings.autoBackupCustomPath.trim()) {
-        await shellOpen(Settings.autoBackupCustomPath.trim());
-      } else {
+      // nx-pg：浏览器无法 shellOpen 本地目录。把路径写剪贴板 + toast 反馈。
+      const path = Settings.autoBackupCustomPath?.trim();
+      if (!path) {
         toast.error("未设置自定义备份路径");
+        return;
       }
+      await navigator.clipboard.writeText(path).catch(() => {});
+      toast.message(`已复制备份目录到剪贴板：${path}`);
     },
   },
   {
@@ -3394,7 +3412,15 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: FolderClock,
     when: whenAlways,
     onPress: async () => {
-      shellOpen(await appCacheDir());
+      // nx-pg：appCacheDir() 在 web shim 返回空串；改用 server workspace 下的 auto-backup-v2。
+      const root = await fetchWorkspacePath();
+      const path = root ? join(root, "auto-backup-v2") : "";
+      if (!path) {
+        toast.error("无法定位备份目录");
+        return;
+      }
+      await navigator.clipboard.writeText(path).catch(() => {});
+      toast.message(`已复制默认备份目录到剪贴板：${path}`);
     },
   },
   {
@@ -3852,7 +3878,15 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: FolderCog,
     when: whenAlways,
     onPress: async () => {
-      shellOpen(await join(await dataDir(), "liren.project-graph"));
+      // nx-pg：浏览器无原生"打开配置文件夹"。配置存 server 端 store + localStorage，
+      // 暴露 workspace 路径到剪贴板供用户定位。
+      const root = await fetchWorkspacePath();
+      if (!root) {
+        toast.error("无法定位配置目录");
+        return;
+      }
+      await navigator.clipboard.writeText(root).catch(() => {});
+      toast.message(`已复制工作目录到剪贴板：${root}`);
     },
   },
   {
@@ -3861,11 +3895,14 @@ export const allKeyBinds: KeyBindItem[] = [
     icon: FolderOpen,
     when: whenAlways,
     onPress: async () => {
-      const path = await join(await appCacheDir());
-      if (!(await exists(path))) {
-        await mkdir(path, { recursive: true });
+      // nx-pg：浏览器缓存无独立目录。指向 workspace + 实际缓存大小提示。
+      const root = await fetchWorkspacePath();
+      if (!root) {
+        toast.error("无法定位缓存目录");
+        return;
       }
-      shellOpen(path);
+      await navigator.clipboard.writeText(root).catch(() => {});
+      toast.message(`已复制工作目录到剪贴板（无独立缓存目录）：${root}`);
     },
   },
   // ===================== Settings — 自动化操作子菜单 =====================
