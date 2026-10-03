@@ -5,6 +5,7 @@ import { ImageNode } from "@/core/stage/stageObject/entity/ImageNode";
 import { Section } from "@/core/stage/stageObject/entity/Section";
 import { CollisionBox } from "@/core/stage/stageObject/collisionBox/collisionBox";
 import type { Project } from "@/core/Project";
+import { Settings } from "@/core/service/Settings";
 import { Rectangle } from "@graphif/shapes";
 import { Vector } from "@graphif/data-structures";
 
@@ -59,7 +60,10 @@ export async function createImageNodeFromBlob(
       scale,
     },
     false,
-    (options.wrapInSection ?? false)
+    // nx-pg：与原版一致（project-graph imageNodeFactory.ts:55）——调用方没显式指定时
+    // 回退到 Settings.wrapImageInGroup，即 Agent.md 第 10 条要求的
+    // 「复制照片之后自动完成 Ctrl+G 的打框操作」。
+    (options.wrapInSection ?? Settings.wrapImageInGroup)
       ? () => {
           const section = Section.fromEntities(project, [imageNode]);
           section.text = "";

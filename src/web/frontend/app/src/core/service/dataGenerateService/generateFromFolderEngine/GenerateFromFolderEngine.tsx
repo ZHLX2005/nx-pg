@@ -10,12 +10,12 @@ import { LineEdge } from "@/core/stage/stageObject/association/LineEdge";
 import { parseSingleEmacsKey } from "@/utils/emacs";
 import { allKeyBinds } from "@/core/service/controlService/shortcutKeysEngine/shortcutKeysRegister";
 import { KeyBindsUI } from "@/core/service/controlService/shortcutKeysEngine/KeyBindsUI";
-// 快捷键分组定义（从SettingsWindow/keybinds.tsx复制）
-
 import { Renderer } from "@/core/render/canvas2d/renderer";
 import { getMultiLineTextSize } from "@/utils/font";
 import i18next from "i18next";
-import { shortcutKeysGroups } from "@/sub/SettingsWindow/keybinds";
+// nx-pg：原 SettingsWindow/keybinds.tsx 整页未移植（sidebar.tsx 在 web 化下未启用），
+// 但 shortcutKeysGroups 数据被 GenerateFromFolderEngine 实际使用，故单独提取到此处。
+import { shortcutKeysGroups } from "@/core/service/shortcutKeysGroups";
 
 @service("generateFromFolder")
 export class GenerateFromFolder {

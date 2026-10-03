@@ -248,11 +248,11 @@ export class ControllerUtils {
   editNodeDetails(clickedNode: Entity) {
     // this.project.controller.isCameraLocked = true;
     // 编辑节点详细信息的视野移动锁定解除，——用户：快深频
+    // nx-pg：原版传 details + cb；本版传 project 让 NodeDetailsWindow 能拿到 historyManager 做撤销记录
+    // syncAssociationManager.syncFrom 在 nx-pg 未实现且会因缺方法抛错，详情修改主路径已够用，跳过孪生同步
     NodeDetailsWindow.open(clickedNode.details, (value) => {
       clickedNode.details = value;
-      // 向孪生兄弟同步 details
-      this.project.syncAssociationManager.syncFrom(clickedNode, "details");
-    });
+    }, this.project);
   }
 
   async addTextNodeByLocation(location: Vector, selectCurrent: boolean = false, autoEdit: boolean = false) {
