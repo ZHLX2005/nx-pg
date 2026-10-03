@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.2.0 · 2026-10-03
+
+UI 一致性与操作连贯性优化轮（6 轮迭代，全部经 headless Chrome 实测验证，每轮 pnpm test 全绿）。
+
+- **按 Agent.md 清理排除项**：菜单栏删 AI / 扩展 / 关于；window 菜单收窄为背景网格组；文件菜单删协作与
+  deep-link。已持久化的旧菜单配置通过「含已删 id 即整体重置」兜底。删右上角窗口控制按钮（钉住/最小化/
+  最大化/关闭，Tauri 桌面能力）与 Windows 触发角。
+- **CommandPalette 排除命令过滤**：新增 `excludedCommands.ts` 集中名单（AI/扩展/协作/深链/桌面窗口/
+  隐身/教程/开发者工具共 50+ 命令 id），命令面板按名单过滤——菜单与面板共用一份名单不会漂移。
+- **粘贴图片自动打框**（Agent.md 第 10 条）：`imageNodeFactory` 的 wrapInSection 回退到
+  `Settings.wrapImageInGroup`（原版语义），默认开启，设置面板新增开关。实测贴 240×120 PNG
+  自动包分组框、状态栏节点数 0→2（图+框）、0 异常。
+- **修递归导入文件夹**（原来点击必报错）：`invoke("read_folder_recursive")` 是 Tauri Rust 命令，web shim
+  无条件 throw——改为前端 BFS 遍历 server 的 `project.fs.readdir`；dialog shim 实现目录选择（prompt 输入
+  workspace 相对路径 + exists 校验）。**根因修复**：server 端 `resolveWorkspacePath` 不认 `file:///` URL，
+  recent 列表里的记录全部被 `validAndRefreshRecentFiles` 当「文件丢失」清掉——现在用 `fileURLToPath`
+  剥协议头，单点修全链路（GlobalMenu 最近文件、缩略图读取同受益）。实测导入嵌套目录 2 个 .prg 成功入列。
+- **恢复 ColorWindow 调色板**：从上游直接复制（零 Tauri 依赖），右键菜单三个颜色入口与 F6/S-F6 快捷键
+  从静默无效变真实可用。
+- **「打开文件夹」类入口给反馈**：配置/缓存/默认备份/自定义备份/工程所在目录 5 个入口在 web 下
+  `shellOpen` 静默无效——改为 toast 显示真实路径 + 复制到剪贴板。
+- **节点详情编辑**：`NodeDetailsWindow` 从 no-op stub 变为真实 textarea 子窗口（details → markdown →
+  编辑 → 写回，Ctrl+Enter 保存 / Esc 取消，Ctrl+Z 撤销整次编辑）。Ctrl+双击节点触发。
+- **右侧快捷设置栏默认项**：剔除隐身×2 / showDebug 三个与菜单裁剪矛盾的孤立开关，换成 web 高频项。
+- **清理**：KeyboardRecentFilesWindow 每次按键弹 toast 的调试残留；WelcomeWindow 删教程下载/公告死代码/
+  AMD 警告与 9 条桌面专属小技巧；右键菜单删涂鸦画笔颜色项。
+
+取舍与已知限制见仓库 PENDING.md（共 11 条，含 Ctrl+E 双绑定、孪生同步跳过、SettingsWindow 完整移植
+暂缓等）。bundle gzip 949 → 967 kB（+18 kB，主要是新页面与图标的真实渲染）。
+
 ## 0.1.7 · 2026-10-03
 
 UI 修复轮（4 个 commit）。三项此前完全不可用的功能修通，全部经真实浏览器实测验证。
