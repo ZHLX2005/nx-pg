@@ -725,8 +725,45 @@ reverseTreeMoveMode / textIntegerLocationAndSizeRender / showRecentFilesThumbnai
 
 ## 下一轮计划
 
-轮7（优化循环）候选：
-- 详情编辑子窗口自适应居中（轮6 改进）
-- 状态栏/画布悬停反馈对照原版补全
-- SettingsWindow 完整移植（先适配 sidebar.tsx Provider/Context，差距#9）
-- 派 requirements-analyst 子 agent 做新阶段差距检查
+轮7（优化循环）— **实际完成：✅ 右侧栏旧数据迁移 + 快捷键设置页（用户点名需求）**
+
+> 用户中途指令：「右侧的功能很多也在web端没有任何作用 我需要实现对快捷键插件的设置」——本轮两项都落地。
+
+### 1. 右侧栏剔除 web 无用旧项（QuickSettingsManager 数据迁移）
+
+- **根因**：init() 只在 localStorage 列表为**空**时写默认值——老用户存档里还是旧 8 项
+  （隐身×2 / showDebug 等已删功能的孤立开关），新默认值永远不生效
+- **修复**：init() 加 REMOVED_QUICK_SETTING_KEYS 黑名单（隐身×2/showDebug/protectingPrivacy×2/
+  windowCollapsing×2/nodeDetailsPanel），读取时过滤，有剔除即回写（一次迁移，不重复）
+- 右侧栏从此只显示 web 有效项
+
+### 2. 快捷键设置页（简易版，替代 stub key-bind）
+
+- **key-bind.tsx 组件**：从 stub 替换为原版 192 行真实现（录键/序列键/持续型/确认/删除，
+  依赖 emacs/keyDisplay utils 已在）
+- **KeyBindsSettingsWindow.tsx 新建**：不用 shadcn Sidebar（轮 5 React #130 教训），平铺分组布局：
+  - 快捷键全集（`!item.isGlobal && !isExcludedCommand(id)` 过滤已删命令）
+  - 按 shortcutKeysGroups 分组 + otherKeys 兜底组
+  - 每行：类型图标 / 冲突提示（含序列前缀重叠检测）/ 重置按钮 / KeyBind 录键框 / 启用开关
+  - 改动即时生效（KeyBindsUI.changeOneUIKeyBind / toggleEnabled）并持久化 keybinds2.json
+- **入口**：设置面板标题栏新增「快捷键设置」按钮 → openKeyBindsSettings() 独立子窗口
+
+### 验证（headless Chrome 全链路实测）
+
+- 设置面板 →「快捷键设置」→ BASIC 分组渲染 保存文件 control+s / 打开文件 control+o / … 每行完整
+- 「在当前项目目录下新建文件」defaultEnabled=false 正确显示为禁用
+- **改键链路**：点键位框 → choosing 态出现（Delete ⌫ + Check ✓ 按钮）→ 录 Ctrl+Shift+S → 点 ✓ →
+  localStorage `saveFile` 从 `C-s` 变 `C-M-s`，0 uncaught exception
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+
+### 已知显示问题（记录不修）
+
+- headless 下 Shift 修饰符显示为 meta（`C-M-s`）——CDP 虚拟键位映射特性，真实浏览器键盘不受影响
+
+## 下一轮计划
+
+轮8（优化循环）候选：
+1. 快捷键设置页入口进 CommandPalette（openKeyBindsSettings 注册为 keyBind）+ 菜单「设置」子项
+2. 分组标题中文化（keyBindsGroup namespace 的 i18n key 对接）
+3. 状态栏/画布悬停反馈对照原版
+4. 兜底：派 requirements-analyst 子 agent 差距检查

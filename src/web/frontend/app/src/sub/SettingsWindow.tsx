@@ -5,11 +5,14 @@
 import { Settings } from "@/core/service/Settings";
 import { Themes } from "@/core/service/Themes";
 import { createSubWindow } from "@/core/subWindowOpen";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
+import { Keyboard } from "lucide-react";
 import { useSyncExternalStore } from "react";
+import KeyBindsSettingsPanel, { openKeyBindsSettings } from "@/sub/KeyBindsSettingsWindow";
 
 function useSetting<K extends string>(key: K): [unknown, (v: unknown) => void] {
   const subscribe = (cb: () => void) => Settings.watch(key, () => cb());
@@ -35,7 +38,13 @@ export default function SettingsPanel() {
 
   return (
     <div className="text-foreground flex h-full flex-col gap-4 overflow-auto p-4 text-sm">
-      <h2 className="text-lg font-bold">设置</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-bold">设置</h2>
+        <Button variant="ghost" size="sm" className="gap-1.5" onClick={() => openKeyBindsSettings()}>
+          <Keyboard className="size-4" />
+          快捷键设置
+        </Button>
+      </div>
 
       <section className="flex flex-col gap-2">
         <h3 className="font-semibold">外观</h3>

@@ -42,12 +42,33 @@ export namespace QuickSettingsManager {
     { settingKey: "showRecentFilesThumbnails" },
   ];
 
+  // nx-pg：web 化后已删功能的设置项（隐身模式/调试显示/窗口收窄等桌面独有能力）。
+  // init() 只在列表为空时写默认值——老用户 localStorage 里存的还是旧 8 项，
+  // 不迁移的话这些「孤立开关」会一直挂在右侧栏。读取时统一过滤。
+  const REMOVED_QUICK_SETTING_KEYS = new Set<string>([
+    "isStealthModeEnabled",
+    "stealthModeReverseMask",
+    "showDebug",
+    "protectingPrivacy",
+    "protectingPrivacyMode",
+    "windowCollapsingWidth",
+    "windowCollapsingHeight",
+    "nodeDetailsPanel",
+  ]);
+
   export async function init() {
     store = await createStore("quick-settings.json");
     // 如果存储中没有数据，则使用默认值
-    const existingItems = await getQuickSettings();
+    let existingItems = await getQuickSettings();
     if (existingItems.length === 0) {
       await setQuickSettings(DEFAULT_QUICK_SETTINGS);
+    } else {
+      // 老数据迁移：剔除 web 化已删功能的项。有剔除就回写，避免每次启动重复过滤
+      const filtered = existingItems.filter((it) => !REMOVED_QUICK_SETTING_KEYS.has(it.settingKey as string));
+      if (filtered.length !== existingItems.length) {
+        await setQuickSettings(filtered);
+        existingItems = filtered;
+      }
     }
     await store.save();
   }
