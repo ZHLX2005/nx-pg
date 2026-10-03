@@ -2,7 +2,6 @@ import MyContextMenuContent from "@/components/context-menu-content";
 import FloatingTabs from "@/components/floating-tabs";
 import PieMenu from "@/components/pie-menu";
 import ThemeModeSwitch from "@/components/theme-mode-switch";
-import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuTrigger } from "@/components/ui/context-menu";
 import { Dialog } from "@/components/ui/dialog";
 import { Project, ProjectState } from "@/core/Project";
@@ -17,9 +16,6 @@ import {
   activeResourceTabAtom,
   activeTabAtom,
   isClassroomModeAtom,
-  isClickThroughEnabledAtom,
-  isWindowAlwaysOnTopAtom,
-  isWindowMaxsizedAtom,
   tabsAtom,
 } from "@/state";
 import WelcomeWindow from "@/sub/WelcomeWindow";
@@ -29,7 +25,6 @@ import { getCurrentWindow } from "@tauri-apps/api/window";
 import { arch, platform, version } from "@tauri-apps/plugin-os";
 import { restoreStateCurrent, saveWindowState, StateFlags } from "@tauri-apps/plugin-window-state";
 import { useAtom } from "jotai";
-import { ChevronsLeftRight, Copy, Minus, Pin, PinOff, Square, X } from "lucide-react";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import CommandPalette from "./CommandPalette";
@@ -40,15 +35,12 @@ import StageStatusBar from "./components/stage-status-bar";
 import { KeyBindsUI } from "./core/service/controlService/shortcutKeysEngine/KeyBindsUI";
 import { checkAndFixShortcutStorage } from "./core/service/controlService/shortcutKeysEngine/ShortcutKeyFixer";
 import { cn } from "./utils/cn";
-import { isLinux, isMac, isWindows } from "./utils/platform";
+import { isLinux } from "./utils/platform";
 
 // tauri-plugin-system-info-api 已 alias 到 shims/tauri-plugin-system-info-api.ts
 import { cpuInfo } from "tauri-plugin-system-info-api";
 
 export default function App() {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const [_, _setMaximized] = useAtom(isWindowMaxsizedAtom);
-
   const [tabs, setTabs] = useAtom(tabsAtom);
   const [, setActiveTab] = useAtom(activeTabAtom);
   const [activeResourceTab] = useAtom(activeResourceTabAtom);
@@ -161,14 +153,7 @@ export default function App() {
     // 恢复窗口位置大小
     restoreStateCurrent(StateFlags.SIZE | StateFlags.POSITION | StateFlags.MAXIMIZED);
 
-    // setIsWide(window.innerWidth / window.innerHeight > 1.8);
-
-    const unlisten1 = getCurrentWindow().onResized(() => {
-      if (!isOnResizedDisabled.current) {
-        isMaximizedWorkaround();
-      }
-      // setIsWide(window.innerWidth / window.innerHeight > 1.8);
-    });
+    // nx-pg：原 onResized → isMaximizedWorkaround 只为驱动已删除的 WindowButtons 高亮，删去。
 
     if (!telemetryEventSent) {
       setTelemetryEventSent(true);
@@ -194,7 +179,6 @@ export default function App() {
     globalShortcutManager.init();
 
     return () => {
-      unlisten1?.then((f) => f());
       KeyBindsUI.uiStopListen();
       // 清理全局快捷键资源
       unwatchWindowBackgroundAlpha();
@@ -208,19 +192,6 @@ export default function App() {
   useEffect(() => {
     setIsClassroomMode(Settings.isClassroomMode);
   }, [Settings.isClassroomMode]);
-
-  // https://github.com/tauri-apps/tauri/issues/5812
-  const isOnResizedDisabled = useRef(false);
-  function isMaximizedWorkaround() {
-    isOnResizedDisabled.current = true;
-    getCurrentWindow()
-      .isMaximized()
-      .then((isMaximized) => {
-        isOnResizedDisabled.current = false;
-        // your stuff
-        _setMaximized(isMaximized);
-      });
-  }
 
   useEffect(() => {
     const updateTabRenderLoops = () => {
@@ -385,7 +356,10 @@ export default function App() {
           style={zoomStyle}
           className="pointer-events-none relative z-10 flex h-full w-full flex-col *:pointer-events-auto"
         >
-          {/* 菜单 | 标签页 | ...移动窗口区域... | 窗口控制按钮 */}
+          {/* 菜单 | 标签页 | ...窗口拖拽区... | 主题明暗开关
+              nx-pg：右侧的窗口控制按钮组（钉住/最小化/最大化/关闭）已删除——
+              那是 Tauri 桌面窗口能力（getCurrentWindow().minimize 等），web 化无意义，
+              浏览器窗口自有系统级控制。 */}
           <div
             className={cn(
               "bg-background z-10 flex h-4 items-center border-b transition-all hover:opacity-100 sm:h-8 sm:gap-2",
@@ -396,13 +370,11 @@ export default function App() {
               className="hover:bg-primary/25 h-full min-w-6 cursor-grab transition-colors active:cursor-grabbing sm:hidden"
               onMouseDown={handleTitleBarMouseDown}
             />
-            {isMac && <WindowButtons />}
             <GlobalMenu />
             <div className="h-full flex-1 cursor-grab active:cursor-grabbing" onMouseDown={handleTitleBarMouseDown} />
             <div className="hidden sm:block">
               <ThemeModeSwitch />
             </div>
-            {!isMac && <WindowButtons />}
           </div>
 
           {/* 右键菜单 */}
@@ -422,13 +394,7 @@ export default function App() {
         <FloatingTabs zoomStyle={zoomStyle} onTabClose={closeTab} />
         <PieMenu />
 
-        {/* 右上角关闭的触发角 */}
-        {isWindows && (
-          <div
-            className="absolute top-0 right-0 z-50 h-1 w-1 cursor-pointer rounded-bl-xl bg-red-600 transition-all hover:h-10 hover:w-10 hover:bg-yellow-500"
-            onClick={() => getCurrentWindow().close()}
-          ></div>
-        )}
+        {/* nx-pg：右上角关闭触发角已删（getCurrentWindow().close() 是桌面窗口能力） */}
         {activeResourceTab instanceof Project ? <DropWindowCover project={activeResourceTab} /> : null}
 
         <CommandPalette zoomStyle={zoomStyle} />
@@ -439,117 +405,10 @@ export default function App() {
 }
 
 /**
- * 窗口右上角的最小化，最大化，关闭等按钮
+ * nx-pg：原版 WindowButtons（窗口右上角 钉住/最小化/最大化/关闭 四按钮）已删除。
+ * 全部能力基于 getCurrentWindow()（Tauri 桌面窗口 API），web 化无意义——
+ * 浏览器窗口自有系统级最小化/最大化/关闭。
  */
-function WindowButtons() {
-  const [maximized] = useAtom(isWindowMaxsizedAtom);
-  const [isClickThroughEnabled] = useAtom(isClickThroughEnabledAtom);
-  const [isWindowAlwaysOnTop, setIsWindowAlwaysOnTop] = useAtom(isWindowAlwaysOnTopAtom);
-  const checkoutWindowsAlwaysTop = async () => {
-    const tauriWindow = getCurrentWindow();
-    if (isWindowAlwaysOnTop) {
-      setIsWindowAlwaysOnTop(false);
-      await tauriWindow.setAlwaysOnTop(false);
-    } else {
-      setIsWindowAlwaysOnTop(true);
-      await tauriWindow.setAlwaysOnTop(true);
-    }
-  };
-
-  return (
-    <div className="bg-background flex h-full items-center">
-      {isClickThroughEnabled && <span className="text-destructive font-bold">Alt + 2关闭窗口穿透点击</span>}
-      {isMac ? (
-        <span className="flex *:flex *:size-3 sm:px-2 sm:*:m-1">
-          <div
-            className="hidden cursor-pointer items-center justify-center rounded-full bg-red-400 text-red-800 hover:scale-110"
-            onClick={() => getCurrentWindow().close()}
-          >
-            <X strokeWidth={3} size={10} />
-          </div>
-          <div
-            className="hidden cursor-pointer items-center justify-center rounded-full bg-yellow-400 text-yellow-800 hover:scale-110"
-            onClick={() => getCurrentWindow().minimize()}
-          >
-            <Minus strokeWidth={3} size={10} />
-          </div>
-          <div
-            className="hidden cursor-pointer items-center justify-center rounded-full bg-green-400 text-green-800 hover:scale-110"
-            onClick={() => {
-              getCurrentWindow()
-                .isFullscreen()
-                .then((res) => getCurrentWindow().setFullscreen(!res));
-            }}
-          >
-            <ChevronsLeftRight strokeWidth={3} size={10} className="rotate-45" />
-          </div>
-          <div
-            className="cursor-pointer items-center justify-center rounded-full bg-blue-400 text-blue-800 hover:scale-110"
-            onClick={async (e) => {
-              e.stopPropagation();
-              checkoutWindowsAlwaysTop();
-            }}
-          >
-            {isWindowAlwaysOnTop ? <Pin size={10} /> : <PinOff size={10} />}
-          </div>
-        </span>
-      ) : (
-        <span className="flex h-full flex-row sm:gap-1">
-          {/* 钉住 */}
-          <Button
-            className="size-4 sm:h-full sm:w-6"
-            variant="ghost"
-            size="icon"
-            onClick={async (e) => {
-              e.stopPropagation();
-              checkoutWindowsAlwaysTop();
-            }}
-          >
-            {isWindowAlwaysOnTop ? <Pin strokeWidth={3} /> : <PinOff strokeWidth={3} className="opacity-50" />}
-          </Button>
-          {/* 最小化 */}
-          <Button
-            className="size-4 sm:h-full sm:w-6"
-            variant="ghost"
-            size="icon"
-            onClick={() => getCurrentWindow().minimize()}
-          >
-            <Minus strokeWidth={3} />
-          </Button>
-          {/* 最大化/还原 */}
-          {maximized ? (
-            <Button
-              className="size-4 sm:h-full sm:w-6"
-              variant="ghost"
-              size="icon"
-              onClick={() => getCurrentWindow().unmaximize()}
-            >
-              <Copy className="size-3" strokeWidth={3} />
-            </Button>
-          ) : (
-            <Button
-              className="size-4 sm:h-full sm:w-6"
-              variant="ghost"
-              size="icon"
-              onClick={() => getCurrentWindow().maximize()}
-            >
-              <Square className="size-3" strokeWidth={4} />
-            </Button>
-          )}
-          {/* 关闭 */}
-          <Button
-            className="size-4 sm:h-full sm:w-6"
-            variant="ghost"
-            size="icon"
-            onClick={() => getCurrentWindow().close()}
-          >
-            <X strokeWidth={3} />
-          </Button>
-        </span>
-      )}
-    </div>
-  );
-}
 
 export function Catch() {
   return <></>;

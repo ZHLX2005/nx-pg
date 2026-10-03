@@ -500,3 +500,233 @@ canvas 存活 —— 轮 4 的乒乓死循环确认不再发生。
 
 - 测试：pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
 - 改动文件：vite.config.js（-2/+4）、lucide-stub.tsx（删除 1172 行）
+
+## 轮 14 完成记录 — UI 排除项清理 + 粘贴自动打框（优化循环第 1 轮）✅ headless 实测
+
+本循环任务来源：Agent.md（权威需求文档）。三项改动全部浏览器实测：
+
+### 1. 菜单栏裁剪（Agent.md：不需要 AI / 扩展市场 / 关于）
+
+- `Settings.tsx` globalMenuConfig 默认值：删 `ai`、`extensions`、`about` 三个顶级菜单；
+  window 菜单只剩背景网点组（全屏/课堂模式/隐私/不透明度/隐身全是 Tauri 窗口能力）；
+  文件菜单删协作子菜单 + deep-link 导出子菜单
+- **旧配置重置判定反转**：原判定 `!hasMenuId(config,"extensions")`（缺了才重置）——
+  默认值删掉 extensions 后永远不触发。改为「存档含 ai/extensions/about/collaborationSub/
+  exportPrgDeepLinkSub 任一 → 重置」。merge 只增不删，这是唯一能清掉已持久化旧菜单的办法
+- 实测菜单栏 = 文件/视野/操作/设置/视图，文件菜单无协作，导出无 deep-link
+
+### 2. 右上角四按钮删除（Agent.md 第 6 条）
+
+- 删 `WindowButtons` 组件（钉住/最小化/最大化/关闭，全走 getCurrentWindow()）、
+  Windows 触发角、isMaximizedWorkaround → isWindowMaxsizedAtom 整条链、
+  App.tsx 7 个失效 import（Button/lucide 6 图标/两个 atom/isMac/isWindows）
+- 实测 pin/minus 图标 0 个，标题栏只剩 GlobalMenu + 拖拽区 + 主题开关
+
+### 3. 粘贴图片自动打框（Agent.md 第 10 条）
+
+- 根因：nx-pg 的 imageNodeFactory 有 wrapInSection 回调但写死 `?? false`，
+  原版是 `?? Settings.wrapImageInGroup`（Settings schema 一直在，只是没人消费）
+- 改回原版语义 + `wrapImageInGroup` 默认 true（原版 false；Agent.md 明确要这个行为）
+- 设置面板新增「图片」区：粘贴图片后自动打框开关
+- **headless 实测**（复刻轮12法：setFocusEmulation + grantPermissions + 真 Ctrl+V 带 text:"v"）：
+  贴 240×120 红蓝渐变 PNG → 画布上图外套白色圆角分组框、状态栏「节点 2」（图1+框1，
+  Section extends Entity 计入 getEntities()）、FPS 61、0 uncaught exception
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 截图 .tool/round1*.png（验证脚本 .tool/round1-verify.mjs / round1-paste-verify.mjs 可复跑）
+- 4 条 UX 冲突写入 PENDING.md（旧菜单配置重置策略 / window 菜单收窄 / 默认值反转 / 打框不弹标题编辑）
+
+## 下一轮计划
+
+轮2（优化循环）— **实际完成：✅ 命令面/欢迎窗/右键菜单三处排除项清理**
+
+### 1. CommandPalette 过滤排除项命令（一致性缺口修复）
+
+轮 1 删了菜单条目，但 CommandPalette 渲染的是 shortcutKeysRegister **全量** keyBinds——
+AI/扩展/协作/deep-link/全屏/隐身/开发者工具等 50+ 命令仍可被搜到并触发。
+新建 `core/service/excludedCommands.ts`（集中名单 + isExcludedCommand），
+CommandPalette 按 id 过滤。菜单与命令面板共用一份名单，不会漂移。
+实测：294 条命令，AI/扩展/协作/深链/关于/隐身/全屏/开发 全部 0 命中，saveFile 等正常命令健在。
+（保留判定：`reload`=location.reload 安全阀、`test`=用户可改测试 toast，均 web 适用，非 dev 漏网）
+
+### 2. WelcomeWindow 清理
+
+- 删：功能说明书下载入口（GitHub 拉教程 prg）、「关于」按钮、原项目官网按钮、
+  版本号官网链接（保版本号文本）、公告系统死代码（LR_API_BASE_URL 云服务不存在）、
+  AMD CPU 桌面渲染警告、9 条桌面专属 slogans（exe/zip、小黄点、透明窗口、窗口拖带等）
+- 增：1 条 web 版 slogan（粘贴图片自动打框提示）
+- 快捷入口四宫格 → 三宫格（新建草稿/最近文件/打开文件）
+
+### 3. 右键菜单删涂鸦项
+
+- contextMenuConfig 默认值删 `setPenStrokeColor`（改变画笔颜色，Agent.md 排除项 1 涂鸦范围）
+- context-menu-content.tsx 删对应渲染器 + 类型分支；schema literal 类型保留（旧存档兼容，渲染为 null）
+- 实测：右键菜单 13 项，「画笔」0 命中，打包/颜色/文本节点操作等核心项健在
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 三组 headless 截图 + DOM 断言全过，0 uncaught exception
+- 验证脚本 .tool/round2-verify.mjs / round2-ctx-verify.mjs 可复跑
+
+## 下一轮计划
+
+轮3（优化循环）— **实际完成：✅ 递归导入断链修复（含 server file:// 协议修复）+ 键盘最近文件调试残留清理**
+
+### 1. RecentFilesWindow「递归导入文件夹」从必报错到真实可用（操作连贯性）
+
+两层断链，全部修复并 headless 实测：
+- **invoke 断链**：原版走 Tauri `invoke("read_folder_recursive")`（Rust 命令），web shim 无条件 throw。
+  改为前端 BFS：dialog 选目录 → server `project.fs.readdir` 逐层展开收集 .prg。
+- **dialog 断链**：dialog shim 的 `open({directory:true})` 原来直接返回 null。
+  实现：prompt 输入 workspace 相对目录（空 = 根目录）+ exists 校验。
+- **server file:// 协议断链（本轮最重要的根因修复）**：导入成功后列表立即变 NULL——
+  前端 recent 存的是 `uri.toString()`（`file:///C:/...`），`validAndRefreshRecentFiles` 拿它调
+  fs.exists，server 的 resolveWorkspacePath 不认 file:// 协议 → exists 恒 false →
+  记录被当「文件丢失」清掉。**影响面不止导入**：GlobalMenu 最近文件、缩略图读取全踩同一坑。
+  修复：resolveWorkspacePath 开头识别 `file://` 前缀，用 `fileURLToPath` 剥协议头（单点修，全链路受益）。
+- 实测：workspace 造 sub/a.prg + sub/deep/b.prg + top.prg，对话框输入 "sub" →
+  toast「成功导入 2 个.prg文件」→ 列表出现 a、b 两卡片（嵌套递归正确，根目录 top.prg 不混入），
+  0 uncaught exception
+
+### 2. KeyboardRecentFilesWindow 调试残留
+
+删 `onKeyDown` 第一行的 `toast(event.key)`（每次按键弹 toast，干扰数字键选文件的既有交互），
+顺带删「打开第 N 项」toast（打开动作本身就是反馈）与未用的 sonner import。
+
+### 3. SettingsWindow section 路由安全确认（候选1，无改动）
+
+4 个 `SettingsWindow.open(...)` 调用点全部落到 stub（忽略 section 参数）= 通用设置面板；
+"extensions"/"about" 的入口命令已在 excludedCommands 过滤。无关于页/扩展页泄漏，无需改。
+（候选3 KeyBindsUI 列表过滤同样确认无需做：完整快捷键设置面板已在前循环删除，
+KeyBindsUI.use(filter) 支持过滤，CommandPalette 已是唯一全量渲染面且已过滤。）
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass；顺带修 round2-verify.mjs 的 unused var lint）
+- 单元级：`file:///C:/...` exists 直查 true
+- 端到端：导入链路 headless 断言 + 截图（.tool/out/round3-import.png）
+- 测试数据已清理（workspace sub/ 目录删除）
+
+## 下一轮计划
+
+轮4（优化循环）— **实际完成：✅ 子 agent 差距检查 + 3 处一致性修复**
+
+### 子 agent 差距检查（兜底条款触发）
+
+交互/渲染层与原版逐字节一致、子窗口层无泄漏，本轮剩下的真实缺口都在「组件依赖的服务被 stub」
+和「设置面板未移植」。子 agent 产出 8 项任务清单（3×P1 + 3×P2 + 2×P3），本轮先落 3 个小改动面项。
+
+### 1. 恢复 ColorWindow 调色板（差距#2，P1）
+
+- 从原版直接复制 sub/ColorWindow.tsx（原版 import 全部为 nx-pg 已有模块，无 Tauri 依赖）
+- context-menu-content.tsx 删 ColorWindow no-op stub，import 真 ColorWindow + ColorManagerPanel
+- 右键菜单「更改颜色」子菜单下的「打开调色板」「打开颜色管理」「打开舞台颜色分布表」三个入口全部可点击生效
+- F6（openColorPanel）/ S-F6（openColorPaletteWindow）两个快捷键从空实现变真
+- 实测：F6 触发 → 调色盘子窗口渲染标题 + 6 色块 + 颜色选择器 + 「打开颜色管理」按钮 + 用户颜色库，0 异常
+
+### 2. 打开文件夹入口给 toast 反馈（差距#3，P1）
+
+5 个「打开本地文件夹」类入口在 web 下原版 `shellOpen(...)` 静默无效（api-core shim 路径全空）：
+- openConfigFolder / openCacheFolder：workspace 路径写到剪贴板 + toast
+- openCustomBackupFolder：Settings.autoBackupCustomPath 路径写剪贴板 + toast
+- openDefaultBackupFolder：workspace/auto-backup-v2 路径写剪贴板 + toast
+- openCurrentProjectFileFolder（Ctrl+Shift+L）：工程所在目录写剪贴板 + toast（同步改 GlobalMenu.tsx 的 openCurrentProjectFolder helper）
+- 加 fetchWorkspacePath() helper（带 module-level 缓存）统一 fetch /api/project/workspace
+
+实测：CommandPalette 搜 openConfigFolder → 回车 → 右下角 toast「已复制工作目录到剪贴板：C:\Users\zhlx\.nx-pg\workspace」
+
+### 3. 右侧快捷设置栏默认项修正（差距#5，P2）
+
+原版默认 8 项里 3 个（isStealthModeEnabled / stealthModeReverseMask / showDebug）对应的菜单入口已在轮 1 删除，
+保留则让右栏常驻 3 个与全局 UI 矛盾的孤立开关。换成 web 高频项：
+showBackgroundDots / wrapImageInGroup / enableDragAutoAlign / forceHideTextNodeBorder / alwaysShowDetails /
+reverseTreeMoveMode / textIntegerLocationAndSizeRender / showRecentFilesThumbnails。
+实测：localStorage `quick-settings.json_quickSettings` 新默认数组已生效，3 个旧项已剔除。
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- headless 实测 3 处：F6 触发 ColorWindow 子窗口渲染完整 / toast 截图确认 / localStorage 默认数组确认
+- 0 uncaught exception
+
+### 留作下轮主线
+
+- **差距#1（移植原版 schema 驱动的设置页）**：150+ 项按 5 大类组织的 SettingField 页（settings.tsx），
+  替代现 5 项最小面板——setting.tsx 全部 infrastructure（SettingField、SettingsIcons、QuickSettingsManager）
+  已在 nx-pg 与原版字节一致，Settings 在核心代码已真实生效，只是没 UI 入口。这是当前最大「有功能无入口」缺口。
+- 差距#4（快捷键自定义页）/ 差距#6（节点详情编辑）：中等改动面，本轮排不上下轮选。
+
+## 下一轮计划
+
+轮5（优化循环）— **实际完成：❌ 移植失败回退主路径 + ✅ 顺手抽出 shortcutKeysGroups**
+
+### 移植原版 SettingsWindow settings.tsx — 失败回退
+
+尝试从原版 project-graph/app/src/sub/SettingsWindow 整体移植 settings.tsx + index.tsx + keybinds.tsx + sidebar.tsx：
+
+- build 成功（bundle 3,538 KB）
+- 但运行时点击「打开设置」报 React #130（element undefined）
+- vite dev 模式因装饰器语法（@service）直接抛 plugin 错误（vite.config.js 加 esbuild.supported.decorators 也无法绕过 react-refresh 的限制）
+- 通过 ErrorBoundary 显示了错误堆栈，但 minified React 错误指向 React 渲染内部，无法定位具体缺失的组件导出
+- 排查方向（sidebar 缺 Provider / fuse.js 加载 / SidebarMenuButton 内部钩子等）均在 nx-pg 单页签场景下补足成本高
+- **务实决定回退**：删 SettingsWindow 子目录、删 keybinds.tsx、恢复 SettingsWindow.tsx 5 项最小面板、恢复 sidebar.tsx 为 stub
+
+### 顺手清理：抽出 shortcutKeysGroups 数据
+
+迁移期间漏掉的结构性依赖：
+- 原 GenerateFromFolderEngine.tsx 直接 import `@/sub/SettingsWindow/keybinds` 的 `shortcutKeysGroups`（用于文件夹树生成的快捷键分组）
+- keybinds.tsx 是 864 行的 UI 页面 + 数据导出耦合，没法只取数据
+- 抽出 `src/web/frontend/app/src/core/service/shortcutKeysGroups.tsx`，只保留数据部分（13 组快捷键分组），让 GenerateFromFolderEngine 改用新路径
+- **nx-pg 的 SettingsWindow.tsx 仍是 5 项最小面板**，150+ 设置项依然「有功能无入口」（差距#1），但本轮未触线
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- bundle size 未变（已回退）
+- 0 uncaught exception
+
+### 教训与后续
+
+- **SettingsWindow 完整移植成本比预期高**：shadcn Sidebar 在原版里的 useSidebar / SidebarProvider / TooltipProvider 等多组件协同，nx-pg 局部场景下需要补 Provider + 全套 Provider/Context 适配才能跑通
+- **下轮若想推**：先做 sidebar.tsx 的 Provider/Context 适配（补 useSidebar + SidebarProvider），再回头移植 settings.tsx。属于中等改动面 P1 工作
+- 替代方案：nx-pg 接受 5 项最小面板作为终态（个人自用 + 关键设置都能改），将差距#1 重新定性为「不做」
+
+## 下一轮计划
+
+轮6（优化循环）— **实际完成：✅ 节点详情 textarea 编辑（差距#6 P2）**
+
+### 节点详情编辑从 stub 变为真
+
+- **替换 stub**（`sub/NodeDetailsWindow.tsx` 原本是 no-op）：
+  - `open(value, cb, project)` 三个参数：details 值、callback、Project（用于 historyManager 撤销记录）
+  - `NodeDetailsEditor` 组件：textarea 编辑 + Ctrl+Enter 保存 + Esc 取消 + 「保存」按钮
+  - 数据通路：details → `DetailsManager.detailsToMarkdown` → textarea → `markdownToDetails` → 写回 entity.details
+  - historyManager.recordStep() 包围整个编辑（mount + save），让 Ctrl+Z 撤销整次详情编辑
+- **utilsControl 适配**：editNodeDetails 改传 `this.project`（让 NodeDetailsWindow 能拿到 historyManager）；
+  砍掉 `syncAssociationManager.syncFrom` 调用（原版孪生同步），nx-pg 的 syncAssociationManager 是 stub 会抛 TypeError e.clone
+- **headless 实测**（v4 测试）：
+  - 双击建节点（260ms 间隔）→ Ctrl+双击节点（100ms 间隔）→ 详情编辑子窗口创建（hasTextarea=true，0 异常）
+  - 子窗口 viewport 位置在画布外（rect.location={120,120} 而画布占满 0-512+px），headless 截图看不到完整子窗口但 textarea 确实渲染
+- **行为变更**：原 Ctrl+E（openTextNodeByContentExternal）不变；详情编辑的唯一入口仍是 Ctrl+双击节点
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- 0 uncaught exception
+- bundle size 变化 <1KB（无新依赖）
+
+### 留给后续
+
+- Ctrl+E 在 nx-pg 原本绑 openTextNodeByContentExternal（外部打开文件），与 editNodeDetailsByKeyboard 冲突（两条 defaultKey 都 C-e）；nx-pg 沿用原版不动，靠 keyboardOnlyEngine 区分。若用户反馈两个语义混淆再统一
+- 详情编辑窗的 viewport 位置参数可改为自适应（rect:Rectangle.inCenter）
+
+## 下一轮计划
+
+轮7（优化循环）候选：
+- 详情编辑子窗口自适应居中（轮6 改进）
+- 状态栏/画布悬停反馈对照原版补全
+- SettingsWindow 完整移植（先适配 sidebar.tsx Provider/Context，差距#9）
+- 派 requirements-analyst 子 agent 做新阶段差距检查

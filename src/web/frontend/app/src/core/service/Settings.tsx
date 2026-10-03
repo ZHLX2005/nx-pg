@@ -223,7 +223,9 @@ export const settingsSchema = z.object({
   webpQuality: z.number().min(0.01).max(1).default(0.85),
   compressImageToBlackAndWhite: z.boolean().default(false),
   blackAndWhiteThreshold: z.number().min(0).max(1).default(0.5),
-  wrapImageInGroup: z.boolean().default(false),
+  // nx-pg：Agent.md 第 10 条——「复制照片之后 自动完成 Ctrl+G 的打框操作」。
+  // 原版默认 false，个人 web 版按用户要求默认开启（设置面板有开关可关）。
+  wrapImageInGroup: z.boolean().default(true),
   textNodeManualDefaultCharWidth: z.number().int().min(3).max(60).default(10),
   allowAddCycleEdge: z.boolean().default(false),
   enableDragNodeShakeDetachFromEdge: z.boolean().default(false),
@@ -570,12 +572,7 @@ export const settingsSchema = z.object({
       { type: "item", id: "switchMTUEdgeRenderType", icon: "RefreshCcw" },
       { type: "item", id: "resetMTUEdgeEndpointLocations", label: "重置端点位置到中心", icon: "AlignCenterHorizontal" },
       { type: "item", id: "switchUndirectedEdgeToEdge", icon: "MoveUpRight" },
-      {
-        type: "setPenStrokeColor",
-        id: "pen-stroke-color",
-        label: "改变画笔颜色",
-        icon: "Palette",
-      },
+      // nx-pg：setPenStrokeColor（画笔颜色）已删——涂鸦功能不在迁移范围（Agent.md 排除项 1）
       { type: "item", id: "copySelectedImageToClipboard", label: "复制图片到系统剪贴板", icon: "Clipboard" },
       { type: "item", id: "swapSelectedImageRedBlueChannels", label: "对调图片红蓝通道", icon: "ArrowLeftRight" },
       { type: "item", id: "compressImage", label: "压缩图片", icon: "Shrink" },
@@ -643,18 +640,6 @@ export const settingsSchema = z.object({
           { type: "item", id: "manualBackup", icon: "Archive" },
           { type: "item", id: "openCustomBackupFolder", icon: "FolderClock" },
           { type: "item", id: "openDefaultBackupFolder", icon: "FolderClock" },
-          { type: "separator", id: "sep-file-collab" },
-          {
-            type: "sub",
-            id: "collaborationSub",
-            icon: "Users",
-            children: [
-              { type: "item", id: "startCollaboration", icon: "Users" },
-              { type: "item", id: "joinCollaboration", icon: "UserPlus" },
-              { type: "item", id: "openCollaborationPanel", icon: "UsersRound" },
-              { type: "item", id: "leaveCollaboration", icon: "UserMinus" },
-            ],
-          },
           { type: "separator", id: "sep-file-2" },
           {
             type: "sub",
@@ -703,16 +688,7 @@ export const settingsSchema = z.object({
                   { type: "item", id: "exportSelectedNetStructureToMermaid", icon: "SquareSquare" },
                 ],
               },
-              {
-                type: "sub",
-                id: "exportPrgDeepLinkSub",
-                icon: "Link",
-                children: [
-                  { type: "item", id: "exportCurrentViewPrgDeepLink", icon: "View" },
-                  { type: "item", id: "exportSelectedEntityPrgDeepLink", icon: "MousePointer2" },
-                  { type: "item", id: "exportCurrentFilePrgDeepLink", icon: "Link" },
-                ],
-              },
+              // nx-pg：exportPrgDeepLinkSub 已删（deep-link 是 Tauri 桌面能力，web 化排除）
             ],
           },
           { type: "separator", id: "sep-file-3" },
@@ -796,24 +772,14 @@ export const settingsSchema = z.object({
           { type: "item", id: "openCacheFolder", icon: "FolderOpen" },
         ],
       },
-      // ===================== AI =====================
-      {
-        type: "topMenu",
-        id: "ai",
-        icon: "Bot",
-        children: [
-          { type: "item", id: "openAIPanel", icon: "ExternalLink" },
-          { type: "item", id: "openAITools", icon: "Wrench" },
-        ],
-      },
+      // ===================== 视图 =====================
+      // nx-pg：window 菜单原版含全屏/课堂模式/隐私保护/窗口不透明/隐身模式（全部 Tauri 窗口级能力，
+      // web 化无意义），只保留与画布相关的背景网点组。
       {
         type: "topMenu",
         id: "window",
         icon: "AppWindow",
         children: [
-          { type: "item", id: "toggleFullscreen", icon: "Fullscreen" },
-          { type: "item", id: "checkoutClassroomMode", icon: "Airplay" },
-          { type: "item", id: "checkoutProtectPrivacy", icon: "VenetianMask" },
           {
             type: "sub",
             id: "backgroundGridSub",
@@ -825,75 +791,11 @@ export const settingsSchema = z.object({
               { type: "item", id: "toggleBackgroundCartesian", icon: "Move3d" },
             ],
           },
-          {
-            type: "sub",
-            id: "windowOpacitySub",
-            icon: "PictureInPicture2",
-            children: [
-              { type: "item", id: "checkoutWindowOpacityMode", icon: "PictureInPicture2" },
-              { type: "item", id: "windowOpacityAlphaDecrease", icon: "PictureInPicture2" },
-              { type: "item", id: "windowOpacityAlphaIncrease", icon: "PictureInPicture2" },
-            ],
-          },
-          { type: "item", id: "switchDebugShow", icon: "Bug" },
-          {
-            type: "sub",
-            id: "stealthModeSub",
-            icon: "CircleDot",
-            children: [
-              { type: "item", id: "switchStealthMode", icon: "CircleDot" },
-              { type: "item", id: "toggleStealthModeReverseMask", icon: "CircleDot" },
-              { type: "item", id: "stealthModeScopeRadiusIncrease", icon: "CirclePlus" },
-              { type: "item", id: "stealthModeScopeRadiusDecrease", icon: "CircleMinus" },
-            ],
-          },
         ],
       },
-      // ===================== 扩展 =====================
-      {
-        type: "topMenu",
-        id: "extensions",
-        icon: "Blocks",
-        children: [
-          { type: "item", id: "openExtensionsWindow", icon: "Blocks" },
-          { type: "item", id: "openPluginMarket", icon: "Store" },
-          { type: "item", id: "openExtensionFolder", icon: "FolderOpen" },
-        ],
-      },
-      // ===================== 关于 =====================
-      {
-        type: "topMenu",
-        id: "about",
-        icon: "CircleAlert",
-        children: [
-          { type: "item", id: "openAboutWindow", icon: "MessageCircleWarning" },
-          {
-            type: "sub",
-            id: "tutorialSub",
-            icon: "BookOpenText",
-            children: [
-              { type: "item", id: "downloadTutorialMain", icon: "FileBadge" },
-              { type: "item", id: "downloadTutorialShortcutKeys", icon: "FileSpreadsheet" },
-              { type: "item", id: "downloadTutorialLogicNodes", icon: "FileBox" },
-              { type: "item", id: "openOfficialDocs", icon: "Globe" },
-            ],
-          },
-          {
-            type: "sub",
-            id: "videoTutorialSub",
-            icon: "Tv",
-            children: [
-              { type: "item", id: "watchBilibiliVideo2", icon: "Tv" },
-              { type: "item", id: "watchBilibiliVideo1_6Basic", icon: "Tv" },
-              { type: "item", id: "watchBilibiliVideo1_6Advanced", icon: "Tv" },
-              { type: "item", id: "watchBilibiliVideo1_0", icon: "Tv" },
-              { type: "item", id: "watchBilibiliVideoPyQtUpdated", icon: "Tv" },
-              { type: "item", id: "watchBilibiliVideoPyQt", icon: "Tv" },
-            ],
-          },
-          { type: "item", id: "showUpgradeGuide", icon: "Dumbbell" },
-        ],
-      },
+      // ===================== AI / 扩展 / 关于 =====================
+      // nx-pg 删除范围（Agent.md 明列不需要）：ai（AI 相关全部）、extensions（扩展系统/市场）、
+      // about（关于 + 教程 + B 站视频）。已持久化旧配置由下方 globalMenuNeedsReset 兜底重置。
       // ===================== 不稳定版本 (运行时动态显示/隐藏) =====================
       {
         type: "topMenu",
@@ -986,8 +888,15 @@ const mergedGlobalMenuConfig = mergeGlobalMenuConfig(
   savedSettings.globalMenuConfig as GlobalMenuNode[],
   defaultSettings.globalMenuConfig as GlobalMenuNode[],
 );
-// 检查是否缺少 extensions 顶级菜单（旧版本用户升级后需要重置以保证顺序正确）
-const globalMenuNeedsReset = !hasMenuId(mergedGlobalMenuConfig, "extensions");
+// nx-pg：mergeGlobalMenuConfig 只增不删——本地已持久化的旧配置里 ai/extensions/about
+// 菜单会原样留存。默认值已裁掉这些菜单，所以「存档里还有它们」即旧配置，整体重置。
+const globalMenuHasRemovedMenus =
+  hasMenuId(savedSettings.globalMenuConfig as GlobalMenuNode[], "ai") ||
+  hasMenuId(savedSettings.globalMenuConfig as GlobalMenuNode[], "extensions") ||
+  hasMenuId(savedSettings.globalMenuConfig as GlobalMenuNode[], "about") ||
+  hasMenuId(savedSettings.globalMenuConfig as GlobalMenuNode[], "exportPrgDeepLinkSub") ||
+  hasMenuId(savedSettings.globalMenuConfig as GlobalMenuNode[], "collaborationSub");
+const globalMenuNeedsReset = globalMenuHasRemovedMenus;
 const finalGlobalMenuConfig = globalMenuNeedsReset
   ? (defaultSettings.globalMenuConfig as GlobalMenuNode[])
   : mergedGlobalMenuConfig;

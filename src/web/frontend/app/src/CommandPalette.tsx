@@ -20,6 +20,7 @@ import {
 } from "./components/ui/command";
 import { Project } from "./core/Project";
 import { activeResourceTabAtom, commandPaletteVisibleAtom } from "./state";
+import { isExcludedCommand } from "./core/service/excludedCommands";
 
 export default function CommandPalette({ zoomStyle }: { zoomStyle?: React.CSSProperties }) {
   const [commandPaletteVisible, setCommandPaletteVisible] = useAtom(commandPaletteVisibleAtom);
@@ -68,7 +69,9 @@ export default function CommandPalette({ zoomStyle }: { zoomStyle?: React.CSSPro
             </CommandGroup>
           )}
           <CommandGroup heading="命令">
-            {uiKeyBinds.map((kb) => {
+            {/* nx-pg：过滤 Agent.md 排除项命令（AI/扩展/协作/deep-link/桌面窗口能力/教程/开发者工具），
+                与 globalMenuConfig 的裁剪保持同一份名单（excludedCommands.ts），两处不会漂移 */}
+            {uiKeyBinds.filter((kb) => !isExcludedCommand(kb.id)).map((kb) => {
               const i18n = t(kb.id, { returnObjects: true }) as { title?: string; description?: string } | undefined;
               const title = i18n?.title ?? kb.id;
               const description = i18n?.description ?? "";

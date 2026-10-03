@@ -12,9 +12,9 @@ import { allKeyBinds } from "@/core/service/controlService/shortcutKeysEngine/sh
 import { ColorManager } from "@/core/service/feedbackService/ColorManager";
 import { Settings } from "@/core/service/Settings";
 import { activeResourceTabAtom } from "@/state";
-// 临时 stub
-const ColorPaletteWindow = { open: () => {} };
-const ColorWindow = { open: () => {} };
+// nx-pg：调色板已从原版恢复（原 stub 导致右键菜单两个入口点击无反应）
+import ColorWindow, { ColorManagerPanel } from "@/sub/ColorWindow";
+import ColorPaletteWindow from "@/sub/ColorPaletteWindow";
 import { Color } from "@graphif/data-structures";
 import { useAtom } from "jotai";
 import type { LucideProps } from "lucide-react";
@@ -229,51 +229,15 @@ export default function MyContextMenuContent() {
             改为强制特殊透明色
           </Item>
           <Item onClick={() => ColorWindow.open()}>打开调色板</Item>
+          <Item onClick={() => ColorManagerPanel.open()}>打开颜色管理</Item>
           <Item onClick={() => ColorPaletteWindow.open()}>打开舞台颜色分布表</Item>
         </SubContent>
       </Sub>
     );
   };
 
-  const renderSetPenStrokeColor = (itemConfig: ContextMenuConfigItem) => {
-    return (
-      <Sub key={itemConfig.id}>
-        <SubTrigger>
-          {getIcon(itemConfig.id, itemConfig.icon)}
-          {getItemTitle(itemConfig.id, itemConfig.label)}
-        </SubTrigger>
-        <SubContent>
-          <Item onClick={() => (Settings.autoFillPenStrokeColor = Color.Transparent.toArray())}>
-            {getIcon("resetPenStrokeColor", "Slash")}
-            {t("resetColor")}
-          </Item>
-          <Item className="grid w-fit grid-cols-4 gap-0 bg-transparent!">
-            {SIMPLE_PALETTE.map((color, index) =>
-              color ? (
-                <div
-                  key={index}
-                  className="hover:outline-accent-foreground size-4 -outline-offset-2 hover:outline-2"
-                  style={{ backgroundColor: color.toString() }}
-                  onMouseEnter={() => {
-                    if (!Settings.colorPanelMouseEnterPreview) return;
-                    p.controller.resetCountdownTimer();
-                    Settings.autoFillPenStrokeColor = color.toArray();
-                  }}
-                  onClick={() => {
-                    p.controller.resetCountdownTimer();
-                    Settings.autoFillPenStrokeColor = color.toArray();
-                  }}
-                />
-              ) : (
-                <div key={index} className="size-4" />
-              ),
-            )}
-          </Item>
-          <Item onClick={() => ColorWindow.open()}>打开调色板</Item>
-        </SubContent>
-      </Sub>
-    );
-  };
+  // nx-pg：setPenStrokeColor 渲染器已删——涂鸦功能不在迁移范围（Agent.md 排除项 1），
+  // contextMenuConfig 默认值里也没有该类型节点了。
 
   const renderItem = (itemConfig: ContextMenuConfigItem): ReactNode => {
     if (!isConfigVisible(itemConfig)) return null;
@@ -302,9 +266,7 @@ export default function MyContextMenuContent() {
       return renderSetColorForSelected(itemConfig);
     }
 
-    if (itemConfig.type === "setPenStrokeColor") {
-      return renderSetPenStrokeColor(itemConfig);
-    }
+    // nx-pg："setPenStrokeColor" 类型分支已删（涂鸦排除）
 
     if (itemConfig.type === "sub") {
       return (
