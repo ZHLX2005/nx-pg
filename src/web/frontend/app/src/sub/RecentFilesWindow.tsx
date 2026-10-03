@@ -15,7 +15,7 @@ import { isMac } from "@/utils/platform";
 import { readCachedPrgThumbnail, readPrgThumbnailBlob, refreshPrgThumbnailCache } from "@/utils/readPrgThumbnail";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
-import { invoke } from "@tauri-apps/api/core";
+import { readDir } from "@tauri-apps/plugin-fs";
 import { open } from "@tauri-apps/plugin-dialog";
 import { useAtom } from "jotai";
 import {
@@ -177,7 +177,7 @@ export default function RecentFilesWindow({ tabId }: { tabId: string }) {
   // 选择文件夹并导入PRG文件
   const importPrgFilesFromFolder = async () => {
     try {
-      // 打开文件夹选择对话框
+      // 打开文件夹选择对话框（nx-pg：返回 workspace 内绝对路径）
       const folderPath = await open({
         directory: true,
         multiple: false,
@@ -186,11 +186,32 @@ export default function RecentFilesWindow({ tabId }: { tabId: string }) {
       if (!folderPath) return;
 
       // 递归读取文件夹中的所有.prg文件
+      // nx-pg：原版走 Tauri invoke("read_folder_recursive")（Rust 命令，web shim 无此命令会 throw）。
+      // 改为前端 BFS：server 的 project.fs.readdir 逐层展开，只收 .prg 文件。
       setIsLoading(true);
-      const files: string[] = await invoke("read_folder_recursive", {
-        path: folderPath,
-        fileExts: [".prg"],
-      });
+      const rootDir = Array.isArray(folderPath) ? folderPath[0] : folderPath;
+      const files: string[] = [];
+      const queue: string[] = [rootDir];
+      const visited = new Set<string>();
+      while (queue.length > 0) {
+        const dir = queue.shift()!;
+        if (visited.has(dir)) continue;
+        visited.add(dir);
+        let entries;
+        try {
+          entries = await readDir(dir);
+        } catch {
+          continue; // 目录读不到（权限/越界）就跳过，不中断整体导入
+        }
+        for (const entry of entries) {
+          const child = dir.endsWith("\\") || dir.endsWith("/") ? dir + entry.name : dir + "/" + entry.name;
+          if (entry.isDirectory) {
+            queue.push(child);
+          } else if (entry.isFile && entry.name.toLowerCase().endsWith(".prg")) {
+            files.push(child);
+          }
+        }
+      }
 
       if (files.length === 0) {
         toast.info("未找到.prg文件");

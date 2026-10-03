@@ -65,7 +65,31 @@ export async function save(options: SaveOptions = {}): Promise<string | null> {
 }
 
 export async function open(options: OpenOptions = {}): Promise<string | string[] | null> {
-  if (options.directory) return null; // 目录选择不支持（个人使用未用到）
+  if (options.directory) {
+    // nx-pg：目录「选择」= 输入 workspace 下的相对目录 + readdir 校验存在。
+    // 空输入 = workspace 根目录。server 端 resolveWorkspacePath 会拦越界路径。
+    const ws = await getWorkspaceDir();
+    if (!ws) return null;
+    const input = window.prompt(
+      "输入要导入的文件夹（workspace 下的相对路径，留空 = workspace 根目录）",
+      "",
+    );
+    if (input === null) return null;
+    const rel = input.trim();
+    if (!rel) return ws;
+    const dir = joinWs(ws, rel);
+    try {
+      const res = await fetch(`/api/project/fs/exists?path=${encodeURIComponent(dir)}`);
+      const body = await res.json();
+      if (!body?.data?.exists) {
+        window.alert(`文件夹不存在：${rel}`);
+        return null;
+      }
+    } catch {
+      return null;
+    }
+    return dir;
+  }
   const ws = await getWorkspaceDir();
   if (!ws) return null;
   // 列出 workspace 下的候选文件，prompt 让用户确认

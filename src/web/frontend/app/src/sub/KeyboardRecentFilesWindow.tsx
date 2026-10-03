@@ -5,7 +5,6 @@ import { TabWorkspace } from "@/core/TabWorkspace";
 import { Vector } from "@graphif/data-structures";
 import { Rectangle } from "@graphif/shapes";
 import { useEffect, useState } from "react";
-import { toast } from "sonner";
 
 export default function KeyboardRecentFilesWindow({ tabId }: { tabId: string }) {
   const [recentFiles, setRecentFiles] = useState<RecentFileManager.RecentFile[]>([]);
@@ -32,13 +31,11 @@ export default function KeyboardRecentFilesWindow({ tabId }: { tabId: string }) 
 
   function onKeyDown(event: KeyboardEvent) {
     // 按下数字键1-9时，打开对应的文件
-    toast(event.key);
     if (event.key >= "1" && event.key <= "9") {
       const index = parseInt(event.key) - 1; // 将键值转换为索引
       if (index >= 0 && index < recentFiles.length) {
         const file = recentFiles[index];
         if (file.uri) {
-          toast(`打开第 ${event.key} 项`);
           onOpenFile(file.uri, "KeyboardRecentFilesWindow");
           void TabWorkspace.close(tabId);
         }
