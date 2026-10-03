@@ -1,6 +1,6 @@
 # nx-pg 迁移进度（Ralph 循环工作日志）
 
-> 每轮开始先读本文件，收尾必须更新它。参考项目**只读**：`../project-graph/`。
+> 每轮开始先读本文件，收尾必须更新它。参考项目**只读**：`.claude/repo/project-graph/`（清单见 `.claude/www/git.remote`，`sync` 可重建）。
 
 ## 任务目标（来自需求文档.md，权威）
 
@@ -762,8 +762,31 @@ reverseTreeMoveMode / textIntegerLocationAndSizeRender / showRecentFilesThumbnai
 
 ## 下一轮计划
 
-轮8（优化循环）候选：
-1. 快捷键设置页入口进 CommandPalette（openKeyBindsSettings 注册为 keyBind）+ 菜单「设置」子项
-2. 分组标题中文化（keyBindsGroup namespace 的 i18n key 对接）
-3. 状态栏/画布悬停反馈对照原版
-4. 兜底：派 requirements-analyst 子 agent 差距检查
+轮8（优化循环）— **实际完成：✅ 快捷键设置入口进命令面板 + 分组标题中文化**
+
+### 1. openKeyBindsSettings 注册为可搜命令
+
+- shortcutKeysRegister 新增 `openKeyBindsSettings` 命令条目（无默认键位，Keyboard 图标）
+- **动态 import 避免循环依赖**：KeyBindsSettingsWindow 反向 import 本文件的 allKeyBinds，
+  静态 import 会成环；onPress 里 `void import(...).then(...)` 打破
+- zh_CN.yml 补 keyBinds namespace 翻译（「打开快捷键设置」）
+- 实测：CommandPalette 搜 openKeyBindsSettings → 「快捷键设置」子窗口打开
+
+### 2. 分组标题中文化
+
+- KeyBindsSettingsWindow 分组标题改走 keyBindsGroup namespace 的 `.title`
+  （zh_CN.yml 已有全套翻译：基础快捷键/摄像机控制/应用控制/未分类的快捷键…）
+- 实测：「基础快捷键」「未分类的快捷键」正确渲染，无 key 泄漏
+
+### 验证
+
+- pnpm run test 全绿（lint + build + smoke 17 actions + unit 5 pass）
+- headless 截图确认中文分组 + 键位行完整，0 uncaught exception
+
+## 下一轮计划
+
+轮9-10（优化循环收尾）候选：
+1. 状态栏/画布悬停反馈对照原版最后一遍过
+2. PROGRESS.md 终版方法论沉淀（发布流程/循环经验）
+3. PENDING.md 清理已解决条目标注
+4. 兜底：派 requirements-analyst 子 agent 做收尾差距检查
