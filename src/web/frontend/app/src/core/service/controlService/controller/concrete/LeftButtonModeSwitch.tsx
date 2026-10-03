@@ -57,10 +57,12 @@ export class LeftButtonModeSwitch {
   /** HUD 渲染（renderer 的 renderViewElements 钩子） */
   public renderHUD = (ctx: CanvasRenderingContext2D, w: number, h: number): void => {
     if (this._hudFrames <= 0) return;
+    // 文案与底部工具栏的 tooltip 对齐（zh_CN.yml：选中/移动 ↔ 连线/斩断），
+    // 用户按 c 切换时看到的是同一对概念的同一套叫法。
     const text =
       this._lastMode === "connectAndCut"
-        ? "Mode · 连线/删除（左键拖出连线，划过节点切割删除）"
-        : "Mode · 创建（双击空白建节点）";
+        ? "Mode · 连线/斩断（左键拖出连线 / 划过切割）"
+        : "Mode · 选中/移动（双击空白建节点）";
     ctx.save();
     ctx.font = "16px sans-serif";
     ctx.textBaseline = "middle";

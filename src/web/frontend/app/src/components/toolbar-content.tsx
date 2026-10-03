@@ -39,7 +39,7 @@ export default function ToolbarContent() {
               variant="ghost"
               size="icon"
               onClick={() => {
-                setLeftMouseMode("connectAndCut");
+                setLeftMouseMode("selectAndMove");
                 Settings.mouseLeftMode = "selectAndMove";
               }}
             >
