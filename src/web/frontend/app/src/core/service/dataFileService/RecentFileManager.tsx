@@ -42,6 +42,22 @@ export namespace RecentFileManager {
       existingFiles.map((f) => ({ ...f, uri: f.uri.toString() })),
     ); // 更新存储
     await store.save();
+    syncToServer(file.uri);
+  }
+
+  // nx-pg：面板的最近列表在 localStorage，CLI/agent 看不见。顺手同步一份到 server
+  // （POST /api/recent/add，路径取 fsPath），让 `nx-pg recent list` 反映面板真实使用。
+  // fire-and-forget：同步失败不影响面板功能。
+  let lastSyncedPath = "";
+  function syncToServer(uri: URI) {
+    const path = decodeURIComponent(uri.fsPath);
+    if (!path || path === lastSyncedPath) return;
+    lastSyncedPath = path;
+    void fetch("/api/recent/add", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path }),
+    }).catch(() => {});
   }
 
   export async function addRecentFileByUri(uri: URI) {

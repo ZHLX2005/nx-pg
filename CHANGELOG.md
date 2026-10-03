@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.4.0 · 2026-10-03
+
+canvas 人机协作轮（新功能域 + 一个存量严重 bug 修复）。
+
+- **`nx-pg canvas dag`——md 多级列表一键变画布树**：提交 `#` 标题 + `-`/`1.` 多级列表的 md，
+  自动解析层级、排版成左右树（`--dir lr`，默认）或上下树（`--dir tb`）的思维导图 .prg，
+  落盘 workspace 并打印可点 URL（`http://127.0.0.1:7888/?open=<文件名>`），点开即见。
+  正文行归属最近节点；checkbox 自动剥离；`---` 分隔多块 dag 各自独立成树并排摆放；
+  单行块 = 独立节点；重名自动追加序号，**绝不覆盖既有文件**（追加式协作）。
+- **`nx-pg canvas export`——画布结构化输出给 AI**：.prg → 层级 md（与 dag 输入同构，
+  改完可再导回，双向闭环）或全量 JSON（节点 uuid/文字/坐标 + 连线）。按形状识别实体，
+  旧存档兼容。
+- **`canvas active` / `recent list` 上下文对齐**：面板打开文件时自动上报（fire-and-forget），
+  AI 用 `canvas active` 看用户正在看什么、`recent list` 看最近用过什么，先对齐再生成。
+- **AI 标准协作闭环**：`canvas active` 对齐上下文 → `canvas export` 读画布 →
+  `canvas dag` 生成新树 → URL 交付。SKILL.md 含完整工作流与 heredoc 模板（含四种实测错误对照）。
+- **修复 .prg 序列化契约 bug（存量）**：生产构建压缩类名（TextNode→Le）导致存档既打不开
+  外部生成的文件、也不可移植（换构建版本旧档即废）。vite 构建期注入 `static className`
+  保留真实类名（unplugin-original-class-name 有泛型误注入 bug，用 20 行本地插件替代）。
+  此后所有存档类名稳定。
+- **新基建**：`src/core/workspace.js`（工作目录 + 路径白名单从 project 模块下沉共享）；
+  前端 `?open=` 直达链接钩子；eslint 补 `.tool/**`/`.claude/**` 忽略。
+- 测试：+21 个（canvas 单测 21 个：parse/layout/prg/action/stdin-heredoc 全覆盖，含
+  spawnSync 直达 stdin 的多行输入测试），全套 26 unit + smoke 21 actions 全绿；
+  headless Chrome 截图验证 lr/tb/多块排版与上报链路（server 请求日志实证）。
+
 ## 0.3.0 · 2026-10-03
 
 快捷键设置轮（用户点名需求 + 右侧栏清理）。

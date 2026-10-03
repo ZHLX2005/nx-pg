@@ -10,8 +10,9 @@
 import { cliPathsOf } from './spec.js';
 import home from '../modules/home/index.js';
 import project from '../modules/project/index.js';
+import canvas from '../modules/canvas/index.js';
 
-export const MODULES = [home, project].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
+export const MODULES = [home, project, canvas].sort((a, b) => (a.order ?? 100) - (b.order ?? 100));
 
 export const ACTIONS = MODULES.flatMap((m) =>
   (m.actions || []).map((a) => ({ ...a, module: m.id }))

@@ -22,7 +22,37 @@ export function shouldServeLocally(url) {
 
 export default defineConfig({
   root: 'src/web/frontend',
-  plugins: [tailwindcss(), ViteYaml(), react()],
+  // 序列化契约需要真实类名：@graphif/serializer 按 constructor.name 注册/查找类，
+  // minify 压缩类名（实测 TextNode→Le）会让 .prg 既打不开也不可移植。
+  // 本地插件替代 unplugin-original-class-name（后者对 `class extends X<...>` 泛型
+  // 表达式会误注入到类型参数里导致构建炸，且 enforce:pre 下才拿得到原始 TSX）。
+  // 只处理有名字的 `class Name`——匿名类 constructor.name 本来就取不到，无需注入。
+  plugins: [
+    {
+      name: 'nx-pg-original-class-name',
+      enforce: 'pre',
+      transform(code, id) {
+        if (!/\.[jt]sx?$/.test(id) || id.includes('node_modules')) return null;
+        const re = /(^|[\s;}])class\s+([A-Za-z_$][\w$]*)\s*( extends\s[^{;]+)?\s*\{/g;
+        let out = code;
+        let touched = false;
+        for (const m of [...code.matchAll(re)].reverse()) {
+          const name = m[2];
+          const insertAt = m.index + m[0].length; // m[0] 以 '{' 结尾 → 此处即 body 开头
+          // 已有 className 的类跳过（@graphif 包自带）
+          const tail = out.slice(insertAt, insertAt + 120);
+          if (/static\s+className\s*=/.test(tail)) continue;
+          out = out.slice(0, insertAt) + ` static className = ${JSON.stringify(name)};` + out.slice(insertAt);
+          touched = true;
+        }
+        if (!touched) return null;
+        return { code: out, map: null };
+      },
+    },
+    tailwindcss(),
+    ViteYaml(),
+    react(),
+  ],
   resolve: {
     alias: {
       // 迁移的 project-graph 源码全部用 @/ 前缀互相引用，alias 保持原路径零改动
@@ -68,6 +98,10 @@ export default defineConfig({
     chunkSizeWarningLimit: 4096,
     target: 'es2022',
     sourcemap: true,
+    // 序列化契约依赖类名：@graphif/serializer 的 classes 表按 constructor.name 注册，
+    // .prg 里的实体记的是这个名字。minify 默认压缩类名（实测 TextNode→Le），
+    // 存档既打不开（找不到类）也不可移植（换个构建版本名字就变）。keepNames 保住原名。
+    esbuildOptions: { keepNames: true },
     rollupOptions: {
       // 不 external 任何 npm 依赖——浏览器运行时 import 必须能被解析。
       // 真正不需要的依赖（被 stub 替换或不在主路径）通过移除 import 路径来排除。

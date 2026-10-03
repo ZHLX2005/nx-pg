@@ -11,6 +11,8 @@ src/web/public/
 .nx-pg-store/
 .tmp-store/
 .tmp-workspace/
+.tmp-workspace*/
+.tmp-store/
 
 # ============================================================
 # Cloned repositories (nested git repos) — sl-git-standard

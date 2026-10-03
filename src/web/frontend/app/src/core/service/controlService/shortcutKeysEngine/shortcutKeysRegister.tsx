@@ -1321,6 +1321,18 @@ export const allKeyBinds: KeyBindItem[] = [
     when: whenAlways,
     onPress: () => RecentFilesWindow.open(),
   },
+  // nx-pg：快捷键设置独立入口（简易设置页，轮 7）。注册成命令后
+  // CommandPalette / 菜单可统一引用；无默认键位，靠搜索或菜单触发。
+  // 动态 import 避免循环依赖：KeyBindsSettingsWindow 反向 import 本文件的 allKeyBinds。
+  {
+    id: "openKeyBindsSettings",
+    defaultKey: "",
+    icon: Keyboard,
+    when: whenAlways,
+    onPress: () => {
+      void import("@/sub/KeyBindsSettingsWindow").then(({ openKeyBindsSettings }) => openKeyBindsSettings());
+    },
+  },
   {
     id: "clickTagPanelButton",
     defaultKey: "S-@",

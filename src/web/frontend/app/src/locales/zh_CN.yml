@@ -1915,6 +1915,10 @@ keyBinds:
     title: 打开最近打开文件列表
     description: |
       按下此键可代替鼠标点击菜单栏里的最近打开文件列表按钮
+  openKeyBindsSettings:
+    title: 打开快捷键设置
+    description: |
+      打开快捷键设置窗口，可查看、修改、启用/禁用所有应用内快捷键
   clickStartFilePanelButton:
     title: 打开/关闭启动文件列表
     description: |

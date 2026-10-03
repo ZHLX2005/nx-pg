@@ -790,3 +790,76 @@ reverseTreeMoveMode / textIntegerLocationAndSizeRender / showRecentFilesThumbnai
 2. PROGRESS.md 终版方法论沉淀（发布流程/循环经验）
 3. PENDING.md 清理已解决条目标注
 4. 兜底：派 requirements-analyst 子 agent 做收尾差距检查
+
+## 轮 15 完成记录 — canvas 模块：CLI md→树 + 人机协作闭环（用户点名需求）
+
+> 用户需求演进：① CLI 输入 md 多级列表 → 画布出现排版好的树（明确否决轮询/前端桥）
+> ② 中途追加：CLI 查最近/激活 prg、prg 结构化输出给 AI、多 dag 块 + 独立节点、追加式不改既有文件
+
+### 新模块 src/modules/canvas/（5 文件，CLI+HTTP 同源 4 action）
+
+- `parse.js`：md → 森林。标题 `#` 深度 + 列表缩进级（unit=最小正缩进，tab=4 空格）
+  单调栈建树；正文归最近节点；checkbox/列表标记剥离；围栏代码块跳过；无归属正文告警
+- `layout.js`：lr（左右树）/tb（上下树）。交叉轴子树 span 累加、主轴按深度分层
+  （层宽=该层最大尺寸），两轴都有不重叠保证；尺寸估算（CJK 全宽+SAFETY 1.15），
+  实际框体由前端 sizeAdjust:"auto" 实测重算；origin 参数支持多块并排
+- `prg.js`：手写实体 JSON（TextNode+LineEdge，样板照 ProjectUpgrader）+ msgpack + zip。
+  引用 `{"$":"/i"}`；值类键序（Vector x/y、Color rgba、Rectangle location/size）；
+  metadata version "2.7.0" 静默打开；端点哨兵 lr(0.99,0.5)→(0.01,0.5)、tb(0.5,0.99)→(0.5,0.01)
+- `export.js`：.prg → 图/md。**按形状识别**（text+collisionBox=节点、associationList
+  双 {$} 引用=边）——keepNames 修复前的旧压缩存档也能读；graphToMd 按几何重建层级
+  （子按 y/x 排序），环边防死循环
+- `index.js`：4 action——`canvas.dag`（多块 `---` 切分、单行块=独立节点、重名-2/-3、
+  输出可点 URL）、`canvas.export`（md/json）、`canvas.active`（get）/`canvas active report`（set）
+
+### 重大修复：.prg 类名压缩（序列化契约 bug，本功能暴露）
+
+- **现象**：手写 `_: "TextNode"` 的 .prg 打不开（Cannot find class）；真实存档里类名是 `Le`
+- **根因**：@graphif/serializer 按 `constructor.name` 注册/查找类；生产 build 压缩类名。
+  原项目用 unplugin-original-class-name 解决，nx-pg 轮 1「放弃插件」留下此隐患——
+  存档既打不开外部生成文件、也不可移植（换构建版本旧档即废）
+- **修复弯路（如实记录）**：
+  1. `build.esbuildOptions.keepNames` 无效——那只管 transform 不管 rollup minifier
+  2. unplugin-original-class-name 直接用炸——它正则把 `class extends X<泛型>` 误注入
+     类型参数里（`static className = "extends"` 注进 `<...>` 中间）→ 构建失败
+  3. 插件 enforce:'pre' 拿原始 TSX 也在同一个泛型 case 炸（插件自身 bug 不可绕）
+  4. **终解**：vite.config.js 本地 20 行插件 `nx-pg-original-class-name`（enforce:'pre'、
+     只匹配有名字的 `class Name`、跳过 node_modules 与已有 className 的类）
+     插入点 bug 修过一次（m[0] 以 `{` 结尾，插入应在其后**不加 1**）
+- **验证**：bundle 里 `__publicField(TextNode,"className","TextNode")` 存在；
+  生成的 .prg headless 打开渲染成功（见下）
+
+### 前端（3 处小改动）
+
+- `main.tsx`：`?open=<workspace 相对路径>` → onOpenFile（照 selftest 形态）；
+  CanvasActiveReporter.start()
+- `CanvasActiveReporter.ts`（新）：activeTabAtom 订阅 + 150ms debounce → POST
+  /api/canvas/active（fire-and-forget；pagehide 立即冲刷）
+- `RecentFileManager.tsx`：addRecentFile 顺手 POST /api/recent/add（同去重防抖）
+  → CLI `recent list` 反映面板真实使用
+
+### 基建
+
+- `src/core/workspace.js`：getWorkspace/resolveWorkspacePath 从 project 模块下沉
+  （canvas 复用路径白名单；模块间禁互依，共享必须落 core）
+- eslint ignores 补 `.tool/**`、`.claude/**`（e2e chrome profile 落 .tool 被 lint 扫到）
+- pnpm install --force 重建 node_modules（junction 全部指向 nx-pg/nx-pg/ 断链，疑似
+  仓库移动过；@msgpack/zip.js import 不出来才发现）
+
+### 验证（headless Chrome 截图 + server 请求日志）
+
+- **lr 左右树**：12 节点/11 连线，三级层级+正文多行、零重叠 ✓（截图 .tool/out/e2e-lr2.png）
+- **tb 上下树**：箭头朝下 ✓（e2e-tb.png）
+- **多块 dag**：3 块（含 1 独立节点块）9 节点并排、块间无连线 ✓（e2e-multiblock.png）
+- **上报链路**（server 日志实证）：open-param → fs/read → POST recent/add →
+  POST canvas/active 全到达；`canvas active` CLI 读回面板激活文件 ✓
+- **export 往返**：dag 生成 → export md 同构（# 根/## 子/### 叶）→ 可再导回 ✓
+- pnpm run test 全绿：lint 0 error + build + smoke 3 模块 21 actions + unit 24/24
+  （canvas.test.mjs 19 个：parse 6/layout 4/prg 2/action 7）
+
+### 已知边界（如实记录）
+
+- 单元测试里「正文归最近节点」= 最后创建的列表项（栈顶），不是所在标题——
+  与「标题下正文」直觉有差；保留原行为（列表为主的工作流里语义自然）
+- `?open=` 的 URL 端口写死 DEFAULT_PORT（CLI 进程不知道 server 实际端口）
+- headless 秒开秒关时 active 上报可能丢（pagehide 强杀不触发）；真实用户不受影响

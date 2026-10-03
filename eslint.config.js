@@ -16,7 +16,7 @@ const BASE_RULES = {
 };
 
 export default defineConfig([
-  { ignores: ['src/web/public/**', 'node_modules/**', 'templates/**', 'src/web/frontend/app/**'] },
+  { ignores: ['src/web/public/**', 'node_modules/**', 'templates/**', 'src/web/frontend/app/**', '.tool/**', '.claude/**'] },
   {
     files: ['**/*.{js,mjs,jsx}'],
     languageOptions: {

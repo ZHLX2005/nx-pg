@@ -28,6 +28,7 @@ type KeyBindData = { id: string; key: string; isEnabled: boolean };
 export default function KeyBindsSettingsPanel() {
   const [data, setData] = useState<KeyBindData[]>([]);
   const { t } = useTranslation("keyBinds");
+  const { t: tGroup } = useTranslation("keyBindsGroup");
 
   useEffect(() => {
     void (async () => {
@@ -156,7 +157,7 @@ export default function KeyBindsSettingsPanel() {
       {grouped.map((group) => (
         <section key={group.title} className="mb-3">
           <h3 className="text-muted-foreground mb-1 text-xs font-semibold tracking-wide uppercase">
-            {t(`groups.${group.title}`, { defaultValue: group.title })}
+            {tGroup(`${group.title}.title`, { defaultValue: group.title })}
           </h3>
           {group.keys.map(renderRow)}
         </section>

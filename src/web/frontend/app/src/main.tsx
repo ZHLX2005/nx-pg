@@ -115,6 +115,29 @@ window.addEventListener("unhandledrejection", (e) => {
     const { GamepadService } = await import("@/core/service/controlService/GamepadService");
     GamepadService.start();
 
+    // 激活文件上报（CLI 侧 `canvas active` 的数据源；fire-and-forget，失败静默）
+    const { CanvasActiveReporter } = await import("@/core/service/CanvasActiveReporter");
+    CanvasActiveReporter.start();
+
+    // ?open=<workspace 相对路径>：CLI 生成 .prg 后打印的直达链接
+    // （nx-pg canvas dag → 输出 URL → 点开即见排版好的树）。显式参数，不传不影响正常启动。
+    const openTarget = new URLSearchParams(location.search).get("open");
+    if (openTarget) {
+      try {
+        const { onOpenFile } = await import("@/core/service/GlobalMenu");
+        const { URI } = await import("vscode-uri");
+        const res = await fetch("/api/project/workspace");
+        const body = (await res.json().catch(() => null)) as { data?: { path?: string } } | null;
+        const workspace = (body?.data?.path ?? "").replace(/[\\/]+$/, "");
+        const abs = workspace + "/" + decodeURIComponent(openTarget);
+        beat("open-param", { target: abs.slice(-40) });
+        await onOpenFile(URI.file(abs), "cli-open");
+      } catch (e) {
+        beat("open-param-fail", { err: String((e as Error)?.message ?? e).slice(0, 120) });
+        console.error("[nx-pg] ?open= 打开失败", e);
+      }
+    }
+
     // ?selftest=1：交互管线自测（合成 pointer/wheel/keyboard 事件驱动 Controller 全链路）
     if (new URLSearchParams(location.search).has("selftest")) {
       const { runSelfTest } = await import("./selftest");
