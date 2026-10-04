@@ -1,5 +1,37 @@
 # Changelog
 
+## 0.5.0 · 2026-10-05
+
+文件管理 + 注入式画布协作轮（用户点名三件套）。
+
+- **`nx-pg canvas inject`——把 md 树注入用户正在看的画布（实时协作）**：
+  AI 提交 md（`--file`/位置参数/stdin heredoc，输入约定与 `canvas dag` 一致）→ 服务端
+  注入队列（≤20 条丢最旧、单条 ≤256KB）→ 面板 `CanvasInjectPoller` 每 2s take-all 拉取
+  → 树出现在**当前视野右侧**（`generateNodeByMarkdown` + 前端 autoLayout，不改既有内容）。
+  **不自动保存**——tab 挂未保存圆点，用户 Ctrl+S 决定留存；无打开画布时 toast 丢弃提示。
+  页面隐藏暂停轮询、回前台立即拉一次。`canvas dag` 输出补提示行（文件模式之外的注入模式）。
+- **工作目录文件浏览器（WorkspaceFilesWindow）**：全局菜单 文件→浏览工作目录 / 命令面板
+  `openWorkspaceFiles`（无默认键位），默认停靠左侧。目录树懒加载折叠 + mtime 修改时间列
+  + 文件名筛选；双击 .prg 打开；条目操作 打开/重命名（Dialog.input）/删除（确认后递归）；
+  顶部 workspace 路径 + 刷新 + 新建文件夹/新 .prg。web 版没有系统文件对话框，
+  从此不用再面对「prompt 列 8 个文件名」的模糊选择。
+- **双击重命名**：双击 file 方案工程的 tab 标签 → 弹框输入新名字 → 磁盘 rename →
+  工程 uri 与所有打开同文件的 tab 同步更新 → 最近文件列表旧删新加；目标已存在即拒绝
+  （追加式约定：绝不覆盖）。draft 提示走 Ctrl+S 起名，collab 排除。
+- **草稿保存起名**：保存对话框 shim 从「静默落 untitled-<时间戳>.prg」改为先弹输入框
+  让用户起名（弹框异常时退回自动起名兜底），重名时间戳兜底保留。
+- **连带修复回归**：`DetailsManager.markdownToDetails` 曾误实现为实例方法（原版是 static），
+  `generateNodeByMarkdown` 全链路炸——canvas inject 是第一个自动化走这条链路的调用方才暴露。
+  按原版补回 static 形状（实例方法保留兼容）。
+- **服务端**：`project.fs.readdir` 条目加 `mtimeMs`；canvas 模块 21→23 actions。
+- 随包 SKILL.md：agent 工作流第 3 步改为「注入模式（实时协作首选）/ 文件模式（落盘留档）」
+  双轨 + inject 边界说明；diff-log 登记 A03/A04（A04 写清与 A02「否决轮询」的演进关系）。
+- 测试：canvas 单测 +2（inject 队列 take-all / 超长拒绝）共 28 unit + smoke 23 actions 全绿；
+  headless Chrome 实测注入链路（CLI → 队列 → 2s 拉取 → 画布节点出现，修复前 console
+  抓到 TypeError）与文件浏览器渲染（菜单点击路径，截图验证）。已知边界：headless 合成
+  键盘进不了 Controller 管线，双击改名/保存起名的弹框交互留真机验证；take-all 单消费者
+  （多开面板先拉先得，个人单面板主场景）。
+
 ## 0.4.1 · 2026-10-04
 
 快捷键体验修复轮。

@@ -1,6 +1,6 @@
 ---
 name: nx-pg
-description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思维导图树、AI 生成内容给人看、读取画布上下文继续协作）时使用 nx-pg CLI。触发词：nx-pg、画布、canvas、prg、思维导图、mindmap、dag、树、canvas dag、canvas export、最近文件、激活文件。不适用：与画布无关的通用编程问题；不需要落盘的纯文本讨论。
+description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思维导图树、AI 生成内容给人看、注入树到用户正在看的画布、读取画布上下文继续协作）时使用 nx-pg CLI。触发词：nx-pg、画布、canvas、prg、思维导图、mindmap、dag、树、canvas dag、canvas inject、注入、canvas export、最近文件、激活文件。不适用：与画布无关的通用编程问题；不需要落盘的纯文本讨论。
 ---
 
 # nx-pg
@@ -10,7 +10,7 @@ description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思�
 ## 核心约定
 
 1. **每个面板操作都有等价 CLI 命令**。AI 不需要开浏览器——CLI 能做面板能做的一切。
-2. **追加式协作**：AI 生成内容一律落成**新文件**，绝不修改用户已有文件。
+2. **追加式协作**：AI 生成内容一律落成**新文件**（或注入队列），绝不修改用户已有文件。
 3. **先对齐上下文再动手**：生成前先查用户正在看什么、最近看什么。
 
 ## 命令速查
@@ -21,7 +21,8 @@ description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思�
 | `nx-pg routes` | 全部 CLI ↔ HTTP 对照表（**agent 摸底第一步**） |
 | `nx-pg help [topic]` | 帮助；`--json` 输出可解析命令表 |
 | `nx-pg health` | 自检（server 是否在跑） |
-| `nx-pg canvas dag <text> [--file p] [--dir lr\|tb] [--name n] [--open]` | **md 多级列表 → 排版好的树 .prg**（AI 写画布的核心命令） |
+| `nx-pg canvas dag <text> [--file p] [--dir lr\|tb] [--name n] [--open]` | **md 多级列表 → 排版好的树 .prg**（落盘新文件） |
+| `nx-pg canvas inject <text> [--file p] [--dir lr\|tb]` | **md 树注入用户正在看的画布**（不落盘，2s 内出现在其画布上） |
 | `nx-pg canvas export --file x.prg [--format md\|json]` | **.prg → 结构化输出**（AI 读画布；md 可再导回） |
 | `nx-pg canvas active` | 用户当前在面板看的 prg |
 | `nx-pg recent list` | 最近打开的 .prg |
@@ -43,17 +44,30 @@ nx-pg canvas export --file 用户文件.prg --format md
 # 输出层级 md（# 标题/列表），与 canvas dag 的输入同构——读进来理解即可
 ```
 
-**第 3 步 · 生成新树**（写 md 文件再传入，或 heredoc）：
+**第 3 步 · 生成内容**——两种模式按场景选：
+
+**A. 注入模式（实时协作，首选）**——用户正开着画布时，把树直接注入他正在看的页面：
 
 ```bash
-# 先把 md 写到临时文件（推荐，最稳）
+nx-pg canvas inject --file plan.md
+# 输出: 已提交注入队列（6 节点 / 5 连线），前端将在 2s 内注入当前画布
+#       目标: 用户当前激活的 prg 名
+```
+
+- 树出现在用户画布**当前视野右侧**，不改既有内容；**不自动保存**（用户 Ctrl+S 决定留存）
+- 前提：用户面板开着且有打开的画布（`canvas active` 有值）；没画布时注入会被丢弃并提示
+- 适合：讲解过程逐步推树、用户看着画布与你讨论、不想落一堆临时 .prg 文件
+
+**B. 文件模式（落盘留档）**——用户没开面板，或内容需要存档：
+
+```bash
 nx-pg canvas dag --file plan.md --dir lr
 # 输出:
 #   已生成 ~/.nx-pg/workspace/方案.prg（12 节点 / 11 连线，左右树）
 #   打开: http://127.0.0.1:7888/?open=方案.prg
 ```
 
-**第 4 步 · 交付**：把输出里的 `http://127.0.0.1:7888/?open=<文件名>` 告诉用户，点开即见排版好的树。server 没跑时先 `nx-pg serve --no-open` 后台起一个。
+**第 4 步 · 交付**：注入模式直接说「已注入你当前画布，看右侧」；文件模式把 `http://127.0.0.1:7888/?open=<文件名>` 告诉用户。server 没跑时先 `nx-pg serve --no-open` 后台起一个。
 
 ## canvas dag：md 输入约定
 
@@ -99,10 +113,16 @@ EOF
 - `--format json`：全量节点（uuid/文字/坐标）与连线，做几何/统计分析用
 - 只能读 workspace 内的 .prg；路径越界报错
 
+## canvas inject：注入的边界
+
+- 队列制：条目 ≤20 条（超出丢最旧）、单条 md ≤256KB；前端 2s 拉取一次（take-all）
+- 注入 = 追加一棵新树到视野右侧，**不改动、不删除用户已有节点**，不自动保存
+- 面板没开 / 没有打开的画布 → 注入丢弃并 toast 提示；重注入前先用 `canvas active` 确认
+
 ## 什么时候不用
 
 - 与画布无关的纯编程问题
-- 需要编辑既有画布细节（在面板里拖拽/编辑；CLI v1 只管「生成新树 + 读内容」）
+- 需要编辑既有画布细节（在面板里拖拽/编辑；CLI v1 只管「生成新树/注入 + 读内容」）
 
 ## 数据与存储
 

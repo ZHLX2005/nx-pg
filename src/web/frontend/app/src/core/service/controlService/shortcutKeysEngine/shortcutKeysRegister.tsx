@@ -1333,6 +1333,17 @@ export const allKeyBinds: KeyBindItem[] = [
       void import("@/sub/KeyBindsSettingsWindow").then(({ openKeyBindsSettings }) => openKeyBindsSettings());
     },
   },
+  // nx-pg：工作目录文件浏览器（web 版没有系统文件对话框，自建 workspace 列表）。
+  // 无默认键位，CommandPalette / 全局菜单触发。
+  {
+    id: "openWorkspaceFiles",
+    defaultKey: "",
+    icon: FolderOpen,
+    when: whenAlways,
+    onPress: () => {
+      void import("@/sub/WorkspaceFilesWindow").then(({ default: WorkspaceFilesWindow }) => WorkspaceFilesWindow.open());
+    },
+  },
   {
     id: "clickTagPanelButton",
     defaultKey: "S-@",

@@ -6,6 +6,8 @@
 //   人:  点 CLI 打印的 URL                       → 画布打开排版好的树
 //   AI:  nx-pg canvas export --file xxx.prg     → 读回结构化数据/md（上下文对接）
 //   AI:  nx-pg canvas active --json             → 看人当前在看的文件（上下文对齐）
+//   AI:  nx-pg canvas inject --file plan.md     → 树注入面板当前打开的画布（实时协作，
+//                                                 前端 2s 拉取注入队列，见 CanvasInjectPoller）
 //
 // 多块 dag：输入按 --- / *** / ___ 分隔行切成多块，每块独立成树并排摆放、
 // 互不连线；单行块 = 独立节点。追加式：每次生成新文件，绝不改既有文件。
@@ -22,6 +24,15 @@ import { readPrgGraph, readPrgMd } from './export.js';
 
 // dag 块分隔行：--- / *** / ___（≥3 个），前后可有空白
 const BLOCK_SPLIT_RE = /^\s*(-{3,}|\*{3,}|_{3,})\s*$/;
+
+// inject 队列约束：防 agent 失控刷队列
+const INJECT_MAX_MD_BYTES = 256 * 1024; // 单条 md 上限
+const INJECT_MAX_QUEUE = 20; // 队列长度上限（超出丢最旧）
+
+async function getInjectStore() {
+  const { createStore } = await import('../../core/store.js');
+  return createStore('inject-queue.json');
+}
 
 // 重名文件自动追加序号：plan.prg → plan-2.prg → plan-3.prg
 function dedupeName(workspace, name) {
@@ -171,6 +182,7 @@ export default {
         const lines = [
           `已生成 ${r.path}（${r.blocks} 块 / ${r.nodes} 节点 / ${r.edges} 连线，${dirLabel}）`,
           `打开: http://127.0.0.1:${DEFAULT_PORT}/?open=${encodeURIComponent(r.name)}（先 nx-pg serve）`,
+          `或注入当前画布: nx-pg canvas inject --file <md路径>`,
         ];
         for (const w of r.warnings) lines.push(`提示: ${w}`);
         return lines.join('\n');
@@ -231,6 +243,84 @@ export default {
         await store.set('active', active);
         return { active };
       },
+    },
+
+    {
+      // 实时注入：md → 前端注入队列（不落盘 .prg）。前端 CanvasInjectPoller 每 2s
+      // GET /api/canvas/inject take-all，用 generateNodeByMarkdown 注入当前画布。
+      // 传 md 原文而非布局坐标：前端 MarkdownImporter 自带 autoLayout，更贴合当前画布。
+      id: 'canvas.inject',
+      cli: ['canvas', 'inject'],
+      http: ['POST', '/api/canvas/inject'],
+      summary: '把 md 树注入面板当前打开的画布（不落盘；队列制，前端自动拉取）',
+      args: [{ name: 'text', required: false }],
+      flags: {
+        file: { type: 'string', hint: 'path' },
+        dir: { type: 'string', enum: ['lr', 'tb'], default: 'lr' },
+      },
+      run: async (ctx, meta) => {
+        const md = await readInput(ctx, meta);
+        if (Buffer.byteLength(md, 'utf8') > INJECT_MAX_MD_BYTES) {
+          throw badInput(`注入内容过大（${Buffer.byteLength(md, 'utf8')} bytes > ${INJECT_MAX_MD_BYTES}）`);
+        }
+
+        // 只为统计节点/连线数（返回值给 CLI 确认用），布局结果不传给前端。
+        // 单行文本（非结构化 md）按 dag 同款语义当独立节点。
+        let nodes = 1;
+        let edges = 0;
+        try {
+          const r = parseMdTree(md);
+          const layout = layoutTree(r.forest, ctx.dir, { x: 0, y: 0 });
+          nodes = layout.nodes.length;
+          edges = layout.edges.length;
+        } catch (e) {
+          if (!/未解析出任何节点/.test(e.message)) throw e;
+        }
+
+        const store = await getInjectStore();
+        const queue = ((await store.get('items')) || []).slice(-(INJECT_MAX_QUEUE - 1));
+        const item = {
+          id: crypto.randomUUID(),
+          at: new Date().toISOString(),
+          dir: ctx.dir,
+          md,
+          nodes,
+          edges,
+        };
+        queue.push(item);
+        await store.set('items', queue);
+
+        // 附带面板当前激活画布，让 CLI 能提示注入目标
+        const activeStore = await import('../../core/store.js').then((m) => m.createStore('canvas-active.json'));
+        const active = await activeStore.get('active');
+        return { queued: true, id: item.id, nodes: item.nodes, edges: item.edges, target: active || null };
+      },
+      render: (r) => {
+        const lines = [
+          `已提交注入队列（${r.nodes} 节点 / ${r.edges} 连线），前端将在 2s 内注入当前画布`,
+          r.target ? `目标: ${r.target.name || r.target.path}` : '目标: 面板当前激活画布（未上报则注入会丢弃）',
+        ];
+        for (const w of r.warnings || []) lines.push(`提示: ${w}`);
+        return lines.join('\n');
+      },
+    },
+
+    {
+      // 前端轮询拉取（take-all：取走即清空）；CLI 形态保留给测试/调试
+      id: 'canvas.inject.fetch',
+      cli: ['canvas', 'inject', 'fetch'],
+      http: ['GET', '/api/canvas/inject'],
+      summary: '取走注入队列全部条目（take-all；前端轮询调用）',
+      run: async () => {
+        const store = await getInjectStore();
+        const items = (await store.get('items')) || [];
+        await store.set('items', []);
+        return { items };
+      },
+      render: (r) =>
+        r.items.length
+          ? r.items.map((it) => `  [${it.at}] ${it.nodes} 节点（${it.dir}）`).join('\n')
+          : '(队列为空)',
     },
   ],
 };

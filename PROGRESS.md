@@ -863,3 +863,65 @@ reverseTreeMoveMode / textIntegerLocationAndSizeRender / showRecentFilesThumbnai
   与「标题下正文」直觉有差；保留原行为（列表为主的工作流里语义自然）
 - `?open=` 的 URL 端口写死 DEFAULT_PORT（CLI 进程不知道 server 实际端口）
 - headless 秒开秒关时 active 上报可能丢（pagehide 强杀不触发）；真实用户不受影响
+
+## 轮 16 完成记录 — 文件管理 + 双击重命名 + canvas 注入（用户点名需求）
+
+> 需求：① workspace 文件列表可视化（原 prompt 输入太模糊）② 临时文件保存后重命名优化
+> （双击条目改名）③ CLI 把树**注入当前打开的画布**（不修改、只注入，实时协作）。
+> 用户拍板：tab 双击改名走弹框；注入位置=当前视野右侧追加；注入后不自动保存。
+
+### 服务端（canvas 模块 21→23 actions）
+
+- `canvas.inject`（POST /api/canvas/inject）：md → 队列 `inject-queue.json`（不落 .prg）。
+  约束：队列 ≤20 丢最旧、单条 md ≤256KB；返回节点/边统计 + 面板当前激活画布提示。
+  单行文本按 dag 同款语义当独立节点（parse 失败兜底）。
+- `canvas.inject.fetch`（GET /api/canvas/inject）：take-all 取走即清空（前端消费端）。
+- `project.fs.readdir` 条目加 `mtimeMs`（stat 逐条，悬空符号链接不阻断）——文件列表显示修改时间。
+- `canvas dag` render 加提示行「或注入当前画布: nx-pg canvas inject --file <md路径>」。
+
+### 前端
+
+- **CanvasInjectPoller.ts**（新）：2s 轮询 GET take-all；页面隐藏暂停、回前台立即拉；
+  条目 → 当前激活 Project.generateNodeByMarkdown(md, 视野右缘外+100, true)；
+  toast「已注入 N 棵树——Ctrl+S 留存」；无画布 toast 丢弃；全部失败静默。
+- **WorkspaceFilesWindow.tsx**（新，默认 dockedLeft）：workspace 目录树懒加载、mtime 列、
+  筛选框；双击 .prg 打开；条目按钮 打开/重命名(Dialog.input)/删除(Dialog.confirm 递归)；
+  顶部 workspace 路径 + 刷新 + 新建文件夹/新 .prg。
+  入口：全局菜单 文件→浏览工作目录 + CommandPalette `openWorkspaceFiles`（无默认键位）。
+- **tab 双击重命名**（ProjectTabs）：双击 file 方案 tab 标题弹 Dialog.input → fs.rename →
+  project.uri 更新（同步所有打开同文件的 tab）→ recent 旧删新加。目标存在即拒绝（不覆盖）。
+- **草稿保存起名**（plugin-dialog.ts shim）：save() 先弹 Dialog.input（Dialog 失败退回
+  自动起名），重名时间戳兜底保留——告别静默 untitled-<时间戳>.prg。
+- subWindowOpenModes 登记 WorkspaceFilesWindow；zh_CN.yml 加 title/description。
+
+### 连带修复（canvas inject 暴露的回归）
+
+- **`DetailsManager.markdownToDetails` 曾误实现为实例方法**（原版是 static）——
+  MarkdownImporter 调 `DetailsManager.markdownToDetails(...)` 直接 TypeError，
+  generateNodeByMarkdown 全链路炸。人手操作时 detail 为空没触发，inject 是第一个
+  自动化走全链路的调用方。已按原版补回 static 形状（实例方法保留兼容旧调用点）。
+
+### 验证（headless Chrome + 隔离 store 的 e2e）
+
+- **注入链路**（e2e-probe/e2e-inject，隔离 store 目录防与用户真实面板抢队列）：
+  CLI inject → 队列 → 前端 2s 拉取 → 画布状态栏 节点 4 连线 3 ✓（修复前 console 抓到
+  markdownToDetails TypeError，修复后零异常）；tab 未保存圆点 = 不自动保存 ✓
+- **注入 CLI**：`canvas inject -` heredoc → queued + 统计；fetch take-all → 再 fetch 空 ✓
+- **文件浏览器**（e2e-wsfiles，菜单点击路径）：文件→浏览工作目录 → dockedLeft 窗口渲染
+  workspace 路径/刷新/筛选/新建/目录树 + mtime 列 ✓（截图 e2e-wsfiles.png）
+- pnpm run test 全绿：lint + build + smoke 23 actions + unit 28/28（canvas.test.mjs 21 个）
+- headless 键盘事件（Ctrl+K 命令面板）打不进 Controller 管线——菜单点击路径可走通，
+  键盘路径留给用户真机验证（记录为已知 e2e 边界）。
+
+### 特化登记
+
+- diff-log A03（workspace 文件浏览器与双击重命名）、A04（canvas 注入，写清与 A02
+  「否决轮询」的演进关系：否决的是文件变化盲轮询，A04 是显式队列协议）；A02 补交叉引用。
+- 随包 SKILL.md 更新：canvas inject 用法 + agent 工作流第 3 步改为「注入模式（首选）/
+  文件模式」双轨；已 `skill install --force` 同步到 ~/.claude/skills。
+
+### 已知边界（如实记录）
+
+- take-all 单消费者：多开面板时先拉到的吃掉队列（个人本机单面板主场景，不做分发）
+- 注入位置固定视野右缘+100：不检测画布外已有内容，极端场景可能叠在屏外节点上
+- headless 无法覆盖 Dialog.input 弹框交互（重命名/保存起名），真机首验项

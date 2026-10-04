@@ -625,6 +625,7 @@ export const settingsSchema = z.object({
           { type: "item", id: "newDraft", icon: "FilePlus" },
           { type: "item", id: "newPrgAtCurrentDir", icon: "FilePlus" },
           { type: "item", id: "openFile", icon: "FolderOpen" },
+          { type: "item", id: "openWorkspaceFiles", icon: "FolderTree" },
           { type: "item", id: "upgradeOldJson", icon: "FileInput" },
           { type: "item", id: "openCurrentProjectFileFolder", icon: "FolderOpen" },
           {

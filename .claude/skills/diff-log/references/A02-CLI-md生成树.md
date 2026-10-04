@@ -52,3 +52,4 @@ nx-pg canvas dag "## 根
 4. **export 按形状识别而非类名**：兼容历史压缩存档（旧档类名是 `Le` 之类），不依赖 className 修复。
 
 > 相关：A01（同属人机协作域）；路径白名单复用 `src/core/workspace.js` 的 resolveWorkspacePath（模块间禁互依，共享落 core）。
+> 演进：本 ref 关键决策 1「否决轮询」针对的是文件变化监听；后续用户点名的**实时注入**（`canvas inject`，显式队列协议）见 A04。

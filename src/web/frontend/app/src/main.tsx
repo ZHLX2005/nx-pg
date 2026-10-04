@@ -119,6 +119,10 @@ window.addEventListener("unhandledrejection", (e) => {
     const { CanvasActiveReporter } = await import("@/core/service/CanvasActiveReporter");
     CanvasActiveReporter.start();
 
+    // canvas 注入轮询（CLI `canvas inject` → 注入当前画布；2s 拉取，页面隐藏时暂停）
+    const { CanvasInjectPoller } = await import("@/core/service/CanvasInjectPoller");
+    CanvasInjectPoller.start();
+
     // ?open=<workspace 相对路径>：CLI 生成 .prg 后打印的直达链接
     // （nx-pg canvas dag → 输出 URL → 点开即见排版好的树）。显式参数，不传不影响正常启动。
     const openTarget = new URLSearchParams(location.search).get("open");

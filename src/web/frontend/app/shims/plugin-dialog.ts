@@ -47,15 +47,29 @@ export async function save(options: SaveOptions = {}): Promise<string | null> {
   const ws = await getWorkspaceDir();
   if (!ws) return null;
   const raw = options.defaultPath?.split(/[\\/]/).pop() || defaultName(options.filters);
-  // 重名自动加时间戳（无对话框 UI 的代价；个人使用可接受）
+  // nx-pg 特化（原版弹系统保存对话框）：先弹输入框让用户起名——
+  // 否则草稿保存会静默落成 untitled-<时间戳>.prg，改不了名。
   let name = raw;
+  try {
+    const { Dialog } = await import("@/components/ui/dialog");
+    const suggested = raw.replace(/\.prg$/i, "");
+    const input = await Dialog.input(options.title ?? "保存文件", "输入文件名（保存到 workspace）", {
+      defaultValue: suggested,
+    });
+    if (input === undefined || !input.trim()) return null; // 用户取消
+    const ext = raw.slice(raw.lastIndexOf("."));
+    name = input.trim() + (input.trim().toLowerCase().endsWith(ext.toLowerCase()) ? "" : ext);
+  } catch {
+    // Dialog 加载失败（极端时序）→ 退回自动起名
+  }
+  // 重名自动加时间戳（无文件覆盖对话框的代价；个人使用可接受）
   try {
     const check = await fetch(`/api/project/fs/exists?path=${encodeURIComponent(joinWs(ws, name))}`);
     const body = await check.json();
     if (body?.data?.exists) {
-      const dot = raw.lastIndexOf(".");
-      const stem = dot > 0 ? raw.slice(0, dot) : raw;
-      const ext = dot > 0 ? raw.slice(dot) : "";
+      const dot = name.lastIndexOf(".");
+      const stem = dot > 0 ? name.slice(0, dot) : name;
+      const ext = dot > 0 ? name.slice(dot) : "";
       name = `${stem}-${Date.now()}${ext}`;
     }
   } catch {

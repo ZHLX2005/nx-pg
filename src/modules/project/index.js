@@ -97,16 +97,29 @@ export default {
       run: async (ctx) => {
         const target = ctx.path ? await resolveWorkspacePath(ctx.path) : await getWorkspace();
         const entries = await readdir(target, { withFileTypes: true });
-        return {
-          path: target,
-          entries: entries
-            .map((e) => ({
+        // mtimeMs 供前端文件列表显示修改时间（逐条 stat，目录条目少，开销可接受）
+        const entriesWithStat = await Promise.all(
+          entries.map(async (e) => {
+            let mtimeMs = 0;
+            try {
+              mtimeMs = (await stat(target + sep + e.name)).mtimeMs;
+            } catch {
+              // stat 失败（如悬空符号链接）不阻断列表
+            }
+            return {
               name: e.name,
               isDirectory: e.isDirectory(),
               isFile: e.isFile(),
               isSymlink: e.isSymbolicLink(),
-            }))
-            .sort((a, b) => (a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1)),
+              mtimeMs,
+            };
+          }),
+        );
+        return {
+          path: target,
+          entries: entriesWithStat.sort((a, b) =>
+            a.isDirectory === b.isDirectory ? a.name.localeCompare(b.name) : a.isDirectory ? -1 : 1,
+          ),
         };
       },
       render: (r) => r.entries.map((e) => `  ${e.isDirectory ? '📁' : '📄'} ${e.name}`).join('\n') || '(空)',

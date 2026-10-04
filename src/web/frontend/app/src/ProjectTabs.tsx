@@ -4,16 +4,75 @@ import { useAtomValue } from "jotai";
 import {  CircleAlert, CloudUpload, X } from "lucide-react";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { URI } from "vscode-uri";
 import TabContextMenu from "./components/tab-context-menu";
 import { Button } from "./components/ui/button";
+import { Dialog } from "./components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./components/ui/tooltip";
 import { Project, ProjectState } from "./core/Project";
+import { RecentFileManager } from "./core/service/dataFileService/RecentFileManager";
 import { SoundService } from "./core/service/feedbackService/SoundService";
 import { Settings } from "./core/service/Settings";
 import { ComponentTab, Tab } from "./core/Tab";
 import { TabWorkspace } from "./core/TabWorkspace";
-import { activeResourceTabAtom } from "./state";
+import { activeResourceTabAtom, store, tabsAtom } from "./state";
+import { rename } from "@tauri-apps/plugin-fs";
+import { exists } from "@tauri-apps/plugin-fs";
 import { replaceTextWhenProtect } from "./utils/font";
+import { PathString } from "./utils/pathString";
+
+/**
+ * 双击 tab 重命名（nx-pg 特化：原版无此交互）。
+ * 仅 file 方案的工程可改名：磁盘 rename → 更新工程 uri → 同步 recent 列表。
+ * draft 走保存流程起名，collab 不是本地文件，均排除。
+ */
+async function renameProjectByDialog(project: Project) {
+  if (project.uri.scheme !== "file") {
+    if (project.isDraft) {
+      toast.info("临时草稿没有文件名，请用 Ctrl+S 保存时起名");
+    }
+    return;
+  }
+  const oldFsPath = project.uri.fsPath;
+  const oldName = PathString.getFileNameFromPath(oldFsPath) + ".prg";
+  const input = await Dialog.input("重命名文件", "输入新的文件名（保留 .prg 扩展名）", {
+    defaultValue: oldName,
+  });
+  if (input === undefined) return; // 取消
+  let newName = input.trim();
+  if (!newName) return;
+  if (!newName.toLowerCase().endsWith(".prg")) newName += ".prg";
+  if (newName === oldName) return;
+  if (/[\\/:*?"<>|]/.test(newName)) {
+    toast.error("文件名不能包含 \\ / : * ? \" < > |");
+    return;
+  }
+
+  const sep = oldFsPath.includes("\\") ? "\\" : "/";
+  const dir = PathString.dirPath(oldFsPath);
+  const newFsPath = dir + sep + newName;
+  try {
+    if (await exists(newFsPath)) {
+      toast.error(`重命名失败：${newName} 已存在`);
+      return;
+    }
+    await rename(oldFsPath, newFsPath);
+  } catch (e) {
+    toast.error(`重命名失败：${e}`);
+    return;
+  }
+
+  // 同步所有打开着这个文件的 tab（uri 匹配）
+  const newUri = URI.file(newFsPath);
+  const opened = store.get(tabsAtom).filter((tab) => tab instanceof Project && tab.uri.toString() === project.uri.toString());
+  for (const tab of opened) {
+    if (tab instanceof Project) tab.uri = newUri;
+  }
+  // recent 列表：旧记录删除、新记录置顶
+  await RecentFileManager.removeRecentFileByUri(URI.file(oldFsPath));
+  await RecentFileManager.addRecentFileByUri(newUri);
+  toast.success(`已重命名：${oldName} → ${newName}`);
+}
 
 // 将 ProjectTabs 移出 App 组件，作为独立组件
 export const ProjectTabs = memo(function ProjectTabs({
@@ -139,7 +198,15 @@ export const ProjectTabs = memo(function ProjectTabs({
               SoundService.play.mouseEnterButton();
             }}
           >
-            <span className="flex items-center gap-1 text-xs">
+            <span
+              className="flex items-center gap-1 text-xs"
+              onDoubleClick={(e) => {
+                if (tab instanceof Project && tab.uri.scheme === "file") {
+                  e.stopPropagation();
+                  void renameProjectByDialog(tab);
+                }
+              }}
+            >
               {tab.icon && <tab.icon className="size-3" />}
               {(() => {
                 const name = tab.title;

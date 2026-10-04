@@ -61,13 +61,20 @@ export class DetailsManager {
     return detailsToPlainText(details);
   }
 
-  /** 原类实例方法：markdown → plate Value（单段落纯文本块） */
-  public markdownToDetails(md: string): DetailsItem[] {
+  /** 原类静态方法（原版签名）：markdown → plate Value（单段落纯文本块）。
+   *  nx-pg 曾误实现为实例方法，导致 MarkdownImporter 调 DetailsManager.markdownToDetails 抛错
+   *  （canvas 注入 / generateNodeByMarkdown 全链路炸）。按原版补回 static 形状。 */
+  public static markdownToDetails(md: string): DetailsItem[] {
     if (!md?.trim()) return [];
     return md.split("\n").map((line) => ({
       type: "p",
       children: [{ text: line }],
     }));
+  }
+
+  /** 兼容旧调用点：markdown → plate Value（单段落纯文本块） */
+  public markdownToDetails(md: string): DetailsItem[] {
+    return DetailsManager.markdownToDetails(md);
   }
 
   public getText(): string {

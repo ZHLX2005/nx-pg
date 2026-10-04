@@ -53,6 +53,8 @@ description: 一句话——特化了什么 + 触发词（供路由检索）
 | --- | --- | --- |
 | A01 | 单 C 键切换左键模式 | 涉及左键交互/连线/切割/`Settings.mouseLeftMode`/C 键/HUD 提示时 |
 | A02 | CLI md→树（canvas 模块） | 涉及 CLI 生成画布/`.prg` 程序化生成/`canvas dag`/md 解析/树布局时 |
+| A03 | workspace 文件浏览器与双击重命名 | 涉及文件列表/workspace 浏览/重命名/双击 tab/草稿保存起名/`WorkspaceFilesWindow` 时 |
+| A04 | canvas 注入 | 涉及 `canvas inject`/注入队列/实时协作/CanvasInjectPoller/注入画布时 |
 
 ## 登记新特化的检查清单
 

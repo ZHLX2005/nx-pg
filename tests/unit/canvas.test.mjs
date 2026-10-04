@@ -346,3 +346,57 @@ test('canvas.dag: 空 stdin 报错并带 heredoc 用法示例，不建文件', a
     delete process.env.NX_PG_WORKSPACE;
   }
 });
+
+// ---- canvas inject：注入队列 ----
+
+test('canvas.inject: 提交 → fetch take-all → 队列清空', async () => {
+  const ws = resolve(process.cwd(), '.tmp-workspace-inject');
+  process.env.NX_PG_WORKSPACE = ws;
+  const { default: canvas } = await import('../../src/modules/canvas/index.js');
+  const find = (id) => canvas.actions.find((a) => a.id === id);
+
+  try {
+    const r1 = await find('canvas.inject').run(
+      { text: '# 注入树\n- 叶子', dir: 'lr' },
+      { transport: 'http' },
+    );
+    assert.equal(r1.queued, true);
+    assert.equal(r1.nodes, 2);
+    assert.equal(r1.edges, 1);
+
+    // 第二条也入队
+    await find('canvas.inject').run({ text: '独立节点' }, { transport: 'http' });
+
+    // fetch take-all：两条全取走
+    const out = await find('canvas.inject.fetch').run({}, { transport: 'http' });
+    assert.equal(out.items.length, 2);
+    assert.match(out.items[0].md, /注入树/);
+    assert.ok(out.items[0].id);
+    assert.ok(out.items[0].at);
+
+    // 再 fetch：空
+    const out2 = await find('canvas.inject.fetch').run({}, { transport: 'http' });
+    assert.equal(out2.items.length, 0);
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+    delete process.env.NX_PG_WORKSPACE;
+  }
+});
+
+test('canvas.inject: 缺输入报错；超长 md 被拒', async () => {
+  const ws = resolve(process.cwd(), '.tmp-workspace-inject-2');
+  process.env.NX_PG_WORKSPACE = ws;
+  const { default: canvas } = await import('../../src/modules/canvas/index.js');
+  const find = (id) => canvas.actions.find((a) => a.id === id);
+
+  try {
+    await assert.rejects(() => find('canvas.inject').run({}, { transport: 'http' }), /缺少输入/);
+    await assert.rejects(
+      () => find('canvas.inject').run({ text: '# x\n' + '- 叶\n'.repeat(60 * 1024) }, { transport: 'http' }),
+      /过大/,
+    );
+  } finally {
+    rmSync(ws, { recursive: true, force: true });
+    delete process.env.NX_PG_WORKSPACE;
+  }
+});

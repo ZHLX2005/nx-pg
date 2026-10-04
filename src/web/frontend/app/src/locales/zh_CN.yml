@@ -1919,6 +1919,10 @@ keyBinds:
     title: 打开快捷键设置
     description: |
       打开快捷键设置窗口，可查看、修改、启用/禁用所有应用内快捷键
+  openWorkspaceFiles:
+    title: 浏览工作目录
+    description: |
+      打开工作目录文件浏览器，可浏览、打开、重命名、删除 workspace 下的 .prg 文件与文件夹
   clickStartFilePanelButton:
     title: 打开/关闭启动文件列表
     description: |
