@@ -46,6 +46,8 @@ export interface KeyBindInputInterceptor {
  */
 export namespace KeyBindsUI {
   const userEventQueue = new Queue<KeyboardEvent | MouseEvent | WheelEvent>();
+  // 双击 Esc 清序列栈：上次 Esc 按下时刻（400ms 内再按 = 双击）
+  let lastEscapeAt = 0;
 
   function enqueue(event: MouseEvent | KeyboardEvent | WheelEvent) {
     // 队列里面最多20个（因为秘籍键长度最大20）
@@ -554,6 +556,21 @@ export namespace KeyBindsUI {
       return;
     }
     if (["control", "alt", "shift", "meta"].includes(event.key.toLowerCase())) return;
+
+    // ——双击 Esc 清空序列栈——
+    // 序列键（如 "q e"、"r e f"）靠 userEventQueue 攒前缀；按了一半想放弃时，
+    // 残留前缀会让下一次按键被误判成序列第二步。双击 Esc = 显式弃手头序列。
+    const rawKeyForEsc = event.key.toLowerCase();
+    if (rawKeyForEsc === "escape") {
+      const now = Date.now();
+      if (now - lastEscapeAt < 400) {
+        userEventQueue.clear();
+        lastEscapeAt = 0;
+        // 清完不清这次 Esc 本身入队：避免下一按 Esc 又构成"双击"
+        return;
+      }
+      lastEscapeAt = now;
+    }
 
     const activeProject = getFocusedProject();
 

@@ -163,3 +163,14 @@ export function formatKeyBindSequenceToString(
     })
     .join(sequenceSeparator);
 }
+
+/**
+ * 两条快捷键是否冲突（重叠）。
+ * 序列键语义：后一条以前一条为前缀（"q" 与 "q e"）也算冲突。
+ * 空键位（未绑定）永不冲突——否则所有未绑定命令 "" === "" 互相误报重叠
+ * （实测：快捷键设置页几十条未绑定命令全挂 ⚠）。
+ */
+export function isKeyBindOverlap(k1: string, k2: string): boolean {
+  if (!k1 || !k1.trim() || !k2 || !k2.trim()) return false;
+  return k1 === k2 || k2.startsWith(k1 + " ") || k1.startsWith(k2 + " ");
+}

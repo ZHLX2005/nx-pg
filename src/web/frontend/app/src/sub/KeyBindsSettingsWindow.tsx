@@ -14,7 +14,7 @@ import { shortcutKeysGroups } from "@/core/service/shortcutKeysGroups";
 import { createStore } from "@/utils/store";
 import { isMac } from "@/utils/platform";
 import { transEmacsKeyWinToMac } from "@/utils/emacs";
-import { formatKeyBindSequenceToString } from "@/utils/keyDisplay";
+import { formatKeyBindSequenceToString, isKeyBindOverlap } from "@/utils/keyDisplay";
 import { KeyboardOff, RotateCw, SquareAsterisk, SquareRoundCorner, SquareStack } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -65,9 +65,6 @@ export default function KeyBindsSettingsPanel() {
     return groups.filter((g) => g.keys.length > 0);
   }, [data]);
 
-  const isKeyOverlap = (k1: string, k2: string) =>
-    k1 === k2 || k2.startsWith(k1 + " ") || k1.startsWith(k2 + " ");
-
   const detectConflicts = (targetKey: string, targetId: string) => {
     const target = allKeyBinds.find((kb) => kb.id === targetId);
     const targetContinuous = target?.isContinuous ?? false;
@@ -75,7 +72,7 @@ export default function KeyBindsSettingsPanel() {
       if (item.id === targetId || !item.isEnabled) return false;
       const kb = allKeyBinds.find((x) => x.id === item.id);
       if ((kb?.isContinuous ?? false) !== targetContinuous) return false;
-      return isKeyOverlap(item.key, targetKey);
+      return isKeyBindOverlap(item.key, targetKey);
     });
   };
 
