@@ -17,7 +17,7 @@ description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思�
 
 | 命令 | 说明 |
 | --- | --- |
-| `nx-pg serve [--port N] [--no-open]` | 启动面板（默认 127.0.0.1:7888，自动开浏览器） |
+| `nx-pg serve [--port N] [--no-open]` | 启动面板（默认 127.0.0.1:7888，自动开浏览器；端口被占时认领自己的面板复用，或顺延到下一个空闲端口） |
 | `nx-pg routes` | 全部 CLI ↔ HTTP 对照表（**agent 摸底第一步**） |
 | `nx-pg help [topic]` | 帮助；`--json` 输出可解析命令表 |
 | `nx-pg health` | 自检（server 是否在跑） |
@@ -27,6 +27,8 @@ description: 当用户要用 nx-pg 画布工作（把 md 变成画布上的思�
 | `nx-pg canvas active` | 用户当前在面板看的 prg |
 | `nx-pg recent list` | 最近打开的 .prg |
 | 任何命令 + `--json` | 机器可读输出（agent 一律加它） |
+
+> 开浏览器可全局关掉：设 `NX_SERVE_NO_OPEN=1`（所有 nx-xx 项目通用）；`--no-open` 只关这一次。
 
 ## agent 标准工作流（人机协作闭环）
 
