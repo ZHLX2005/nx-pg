@@ -78,17 +78,38 @@ export default {
       id: 'home.skillInstall',
       cli: ['skill', 'install'],
       http: ['POST', '/api/skill/install'],
-      summary: '把随包 skill 装到 ~/.claude/skills（让本机 agent 学会用法）',
+      summary: '把随包 skill 装到 ~/.claude/skills（--all 一次装齐全部）',
       flags: {
         name: { type: 'string' },
+        all: { type: 'boolean' },
         to: { type: 'string' },
         force: { type: 'boolean' },
       },
       run: async (ctx) => {
-        const { installBundledSkill } = await import('../../runtime/skill.js');
+        const { installBundledSkill, installAllBundledSkills } = await import('../../runtime/skill.js');
+        if (ctx.all && ctx.name) {
+          const err = new Error('--all 与 --name 互斥，只能给一个');
+          err.code = 'INVALID_INPUT';
+          throw err;
+        }
+        if (ctx.all) return installAllBundledSkills({ to: ctx.to, force: ctx.force });
         return installBundledSkill({ name: ctx.name, to: ctx.to, force: ctx.force });
       },
       render: (r) => {
+        // 多 skill 结果（--all）：与单个同一套措辞，冲突时整批未落盘
+        if (Array.isArray(r.skills)) {
+          if (r.status === 'conflict') {
+            return (
+              '全部 skill 有冲突（未安装任何文件）:\n' +
+              r.skills.map((x) => `  冲突: ${x.path}（${x.count} 个文件不同）`).join('\n') +
+              '\n确认覆盖: 加 --force'
+            );
+          }
+          return (
+            '全部 skill 已安装:\n' +
+            r.skills.map((x) => `  ${x.skipped ? '已是最新' : '已安装'}: ${x.path}`).join('\n')
+          );
+        }
         if (r.skipped) return `已是最新: ${r.path}`;
         if (r.status === 'conflict')
           return `冲突: ${r.path}（${r.count} 个文件不同；确认覆盖加 --force）`;
