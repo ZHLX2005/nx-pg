@@ -64,7 +64,7 @@ export async function installBundledSkill({ name = SKILL_NAME, to, force } = {})
 // 名单取自**目录扫描**而不是维护第二份清单：新加一个 skill 目录就该被 --all 覆盖到，
 // 漏写清单是迟早的事。语义与单个安装严格一致——先全员预检，任一冲突就**整批不落盘**：
 // 装一半的批次比全没装更难收拾（用户分不清哪几个是新的）。
-export async function installAllBundledSkills({ to, force } = {}) {
+export async function installAllBundledSkills({ to } = {}) {
   const names = [];
   for (const n of await bundledSkillNames()) {
     if (existsSync(join(ASSETS_DIR, n, 'SKILL.md'))) names.push(n);
@@ -76,21 +76,11 @@ export async function installAllBundledSkills({ to, force } = {}) {
     throw err;
   }
 
-  if (!force) {
-    const conflicts = [];
-    for (const n of names) {
-      const dst = join(to || DEFAULT_SKILLS_DIR, n);
-      const files = await diffTrees(join(ASSETS_DIR, n), dst);
-      if (files.length && (await exists(dst))) {
-        conflicts.push({ name: n, path: dst, files, count: files.length });
-      }
-    }
-    if (conflicts.length) return { status: 'conflict', all: true, skills: conflicts };
-  }
-
+  // --all 的语义就是「装全 + 对齐到包内版本」：直接覆盖，不再走冲突预检。
+  // 想保留目标目录里的本地改动就别用 --all；单个 / 整组安装的三态语义不变。
   const skills = [];
   for (const n of names) {
-    skills.push({ name: n, ...(await installBundledSkill({ name: n, to, force })) });
+    skills.push({ name: n, ...(await installBundledSkill({ name: n, to, force: true })) });
   }
   return { status: 'ok', all: true, skills };
 }

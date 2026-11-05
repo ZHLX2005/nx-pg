@@ -78,7 +78,7 @@ export default {
       id: 'home.skillInstall',
       cli: ['skill', 'install'],
       http: ['POST', '/api/skill/install'],
-      summary: '把随包 skill 装到 ~/.claude/skills（--all 一次装齐全部）',
+      summary: '把随包 skill 装到 ~/.claude/skills（--all 一次装齐全部并直接覆盖）',
       flags: {
         name: { type: 'string' },
         all: { type: 'boolean' },
@@ -92,22 +92,17 @@ export default {
           err.code = 'INVALID_INPUT';
           throw err;
         }
-        if (ctx.all) return installAllBundledSkills({ to: ctx.to, force: ctx.force });
+        if (ctx.all) return installAllBundledSkills({ to: ctx.to });
         return installBundledSkill({ name: ctx.name, to: ctx.to, force: ctx.force });
       },
       render: (r) => {
-        // 多 skill 结果（--all）：与单个同一套措辞，冲突时整批未落盘
+        // 多 skill 结果（--all）：与单个同一套措辞。--all 恒覆盖，不会出现 conflict；
+        // 单装 / 整组那条路径仍有「加 --force」的提示。
         if (Array.isArray(r.skills)) {
-          if (r.status === 'conflict') {
-            return (
-              '全部 skill 有冲突（未安装任何文件）:\n' +
-              r.skills.map((x) => `  冲突: ${x.path}（${x.count} 个文件不同）`).join('\n') +
-              '\n确认覆盖: 加 --force'
-            );
-          }
+          const replaced = r.skills.filter((x) => x.replaced).length;
           return (
-            '全部 skill 已安装:\n' +
-            r.skills.map((x) => `  ${x.skipped ? '已是最新' : '已安装'}: ${x.path}`).join('\n')
+            `全部 ${r.skills.length} 个 skill 已安装${replaced ? `（覆盖 ${replaced} 个）` : ''}:\n` +
+            r.skills.map((x) => `  ${x.skipped ? '已是最新' : x.replaced ? '已覆盖' : '已安装'}: ${x.path}`).join('\n')
           );
         }
         if (r.skipped) return `已是最新: ${r.path}`;

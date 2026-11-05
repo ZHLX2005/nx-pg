@@ -42,7 +42,7 @@ test('installAllBundledSkills：幂等，第二次全部 skipped', async () => {
   }
 });
 
-test('installAllBundledSkills：有差异 → 整批 conflict，加 --force 才覆盖', async () => {
+test('installAllBundledSkills：有差异 → 直接覆盖（--all 的语义，不需要 --force）', async () => {
   const dir = await temp();
   try {
     const names = (await bundledSkillNames()).sort();
@@ -52,14 +52,10 @@ test('installAllBundledSkills：有差异 → 整批 conflict，加 --force 才�
     const original = await readFile(victim, 'utf8');
     await writeFile(victim, original + '\n<!-- 本地改动 -->\n', 'utf8');
 
+    // --all 恒覆盖：本地改动被包内版本替换，且不返回 conflict
     const r = await installAllBundledSkills({ to: dir });
-    assert.equal(r.status, 'conflict');
-    assert.equal(r.skills.length, 1);
-    assert.match(await readFile(victim, 'utf8'), /本地改动/, '冲突时不许动任何文件');
-
-    const forced = await installAllBundledSkills({ to: dir, force: true });
-    assert.equal(forced.status, 'ok');
-    assert.equal(await readFile(victim, 'utf8'), original);
+    assert.equal(r.status, 'ok');
+    assert.equal(await readFile(victim, 'utf8'), original, '本地改动被包内版本替换');
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
